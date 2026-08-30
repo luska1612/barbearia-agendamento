@@ -506,9 +506,18 @@ nav.principal {
   font-weight: 700;
 }
 .hero-cartao-flutuante p {
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: 1rem;
+  color: var(--off-white);
   margin-top: 4px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.hero-cartao-sub {
+  display: block;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 2px;
+  letter-spacing: 0.03em;
 }
 
 /* ==========================================================================
@@ -558,6 +567,87 @@ nav.principal {
   letter-spacing: 0.05em;
   text-align: center;
   padding: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.sobre-visual-conteudo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  z-index: 1;
+}
+
+.sobre-icone-grande {
+  font-size: 4rem;
+  color: var(--dourado);
+  opacity: 0.85;
+  filter: drop-shadow(0 4px 15px rgba(106, 70, 143, 0.4));
+}
+
+.sobre-decoracao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sobre-linha {
+  display: block;
+  width: 50px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--dourado), transparent);
+}
+
+.sobre-estrela {
+  font-size: 0.65rem;
+  color: var(--dourado);
+}
+
+.sobre-visual-titulo {
+  font-family: var(--fonte-titulo);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--off-white);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sobre-visual-subtitulo {
+  font-family: var(--fonte-corpo);
+  font-size: 0.85rem;
+  color: var(--dourado-claro);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: -8px;
+}
+
+.sobre-icones-row {
+  display: flex;
+  gap: 28px;
+  margin-top: 8px;
+}
+
+.sobre-icones-row i {
+  font-size: 1.4rem;
+  color: var(--dourado);
+  opacity: 0.5;
+  transition: var(--transicao);
+}
+
+.sobre-imagem-placeholder:hover .sobre-icones-row i {
+  opacity: 0.85;
+}
+
+.sobre-visual-desde {
+  font-family: var(--fonte-titulo);
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.15em;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 18px;
+  border-radius: 20px;
+  margin-top: 4px;
 }
 .sobre-texto p {
   color: rgba(255, 255, 255, 0.72);
