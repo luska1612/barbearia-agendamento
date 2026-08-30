@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | [NOME DA BARBEARIA]</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+    <div class="admin-wrapper">
+        <!-- Menu Lateral -->
+        <aside class="admin-sidebar">
+            <div class="sidebar-logo">
+                <div class="marca-logo">B</div>
+                <span class="marca-nome">Admin <span style="color:var(--dourado)">Painel</span></span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" data-section="dashboard">
+                        <i class="fas fa-chart-line"></i> <span>Dashboard</span>
+                    </li>
+                    <li class="nav-item" data-section="agendamentos">
+                        <i class="fas fa-calendar-alt"></i> <span>Agendamentos</span>
+                    </li>
+                    <li class="nav-item" data-section="servicos">
+                        <i class="fas fa-cut"></i> <span>Serviços</span>
+                    </li>
+                    <li class="nav-item" data-section="barbeiros">
+                        <i class="fas fa-users"></i> <span>Barbeiros</span>
+                    </li>
+                    <li class="nav-item" data-section="configuracoes">
+                        <i class="fas fa-cog"></i> <span>Configurações</span>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="index.html" class="btn-voltar-site">
+                    <i class="fas fa-external-link-alt"></i> <span>Ver Site Principal</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Área de Conteúdo Principal -->
+        <main class="admin-main">
+
+            <!-- Header Superior -->
+            <header class="admin-topbar">
+                <div class="topbar-info">
+                    <h2 id="section-title">Dashboard</h2>
+                    <p id="section-subtitle">Visão geral do seu negócio</p>
+                </div>
+                <div class="topbar-user">
+                    <div class="user-profile">
+                        <span>Administrador</span>
+                        <div class="user-avatar">A</div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+
+                <!-- SEÇÃO: DASHBOARD -->
+                <section id="dashboard" class="admin-section active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                            <div class="stat-data">
+                                <span class="stat-label">Hoje</span>
+                                <span class="stat-value" id="stat-hoje">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-calendar-week"></i></div>
+                            <div class="stat-data">
+                                <span class="stat-label">Semana</span>
+                                <span class="stat-value" id="stat-semana">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-calendar-alt"></i></div>
+                            <div class="stat-data">
+                                <span class="stat-label">Mês</span>
+                                <span class="stat-value" id="stat-mes">0</span>
+                            </div>
+                        </div>
+                        <div class="stat-card destaque">
+                            <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+                            <div class="stat-data">
+                                <span class="stat-label">Receita Estimada</span>
+                                <span class="stat-value" id="stat-receita">R$ 0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-charts">
+                        <div class="chart-card">
+                            <h3>Fluxo de Agendamentos</h3>
+                            <div class="simple-chart" id="agenda-chart">
+                                <!-- Barras geradas via JS -->
+                            </div>
+                            <div class="chart-labels">
+                                <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SEÇÃO: AGENDAMENTOS -->
+                <section id="agendamentos" class="admin-section">
+                    <div class="action-bar">
+                        <div class="filtros-grupo">
+                            <input type="date" id="filter-date">
+                            <select id="filter-barber">
+                                <option value="todos">Todos os Barbeiros</option>
+                            </select>
+                            <select id="filter-status">
+                                <option value="todos">Todos os Status</option>
+                                <option value="Confirmado">Confirmado</option>
+                                <option value="Concluído">Concluído</option>
+                                <option value="Cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                        <div class="ordenacao-grupo">
+                            <button class="btn-sort" id="sort-date">Ordenar Data <i class="fas fa-sort"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Cliente</th>
+                                    <th>Telefone</th>
+                                    <th>Serviço</th>
+                                    <th>Barbeiro</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-agendamentos">
+                                <!-- Linhas via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- SEÇÃO: SERVIÇOS -->
+                <section id="servicos" class="admin-section">
+                    <div class="action-bar">
+                        <button class="btn btn-primario" id="btn-novo-servico">
+                            <i class="fas fa-plus"></i> Novo Serviço
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Preço</th>
+                                    <th>Duração</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-servicos">
+                                <!-- Linhas via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- SEÇÃO: BARBEIROS -->
+                <section id="barbeiros" class="admin-section">
+                    <div class="action-bar">
+                        <button class="btn btn-primario" id="btn-novo-barbeiro">
+                            <i class="fas fa-plus"></i> Novo Barbeiro
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Especialidades</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-barbeiros">
+                                <!-- Linhas via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- SEÇÃO: CONFIGURAÇÕES -->
+                <section id="configuracoes" class="admin-section">
+                    <div class="config-grid">
+                        <div class="config-card">
+                            <h3><i class="fas fa-clock"></i> Horários</h3>
+                            <div class="config-group">
+                                <div class="campo">
+                                    <label>Abertura</label>
+                                    <input type="time" id="config-abertura">
+                                </div>
+                                <div class="campo">
+                                    <label>Fechamento</label>
+                                    <input type="time" id="config-fechamento">
+                                </div>
+                                <div class="campo">
+                                    <label>Intervalo entre agendamentos (min)</label>
+                                    <input type="number" id="config-intervalo">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fas fa-calendar-alt"></i> Dias de Funcionamento</h3>
+                            <div class="dias-grid">
+                                <label><input type="checkbox" class="dia-check" value="1" checked> Segunda</label>
+                                <label><input type="checkbox" class="dia-check" value="2" checked> Terça</label>
+                                <label><input type="checkbox" class="dia-check" value="3" checked> Quarta</label>
+                                <label><input type="checkbox" class="dia-check" value="4" checked> Quinta</label>
+                                <label><input type="checkbox" class="dia-check" value="5" checked> Sexta</label>
+                                <label><input type="checkbox" class="dia-check" value="6" checked> Sábado</label>
+                                <label><input type="checkbox" class="dia-check" value="0"> Domingo</label>
+                            </div>
+                        </div>
+                        <div class="config-card">
+                            <h3><i class="fas fa-database"></i> Sistema</h3>
+                            <div class="config-group">
+                                <div class="campo switch-campo">
+                                    <label>Persistência LocalStorage</label>
+                                    <input type="checkbox" id="config-storage" checked>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-fantasma" id="btn-export-json">Exportar JSON</button>
+                                    <button class="btn btn-fantasma" id="btn-export-csv">Exportar CSV</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="config-actions">
+                        <button class="btn btn-primario" id="btn-salvar-config">Salvar Configurações</button>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAIS -->
+    <div id="modal-servico" class="modal-fundo oculto">
+        <div class="modal-caixa">
+            <button class="modal-fechar">×</button>
+            <h3 id="modal-servico-title">Novo Serviço</h3>
+            <form id="form-servico">
+                <input type="hidden" id="servico-id">
+                <div class="campo">
+                    <label>Nome do Serviço</label>
+                    <input type="text" id="servico-nome" required placeholder="Ex: Corte de Cabelo">
+                </div>
+                <div class="duas-colunas">
+                    <div class="campo">
+                        <label>Preço (R$)</label>
+                        <input type="number" id="servico-preco" required step="0.01">
+                    </div>
+                    <div class="campo">
+                        <label>Duração (min)</label>
+                        <input type="number" id="servico-duracao" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primario btn-bloco">Salvar Serviço</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-barbeiro" class="modal-fundo oculto">
+        <div class="modal-caixa">
+            <button class="modal-fechar">×</button>
+            <h3 id="modal-barbeiro-title">Novo Barbeiro</h3>
+            <form id="form-barbeiro">
+                <input type="hidden" id="barbeiro-id">
+                <div class="campo">
+                    <label>Nome Completo</label>
+                    <input type="text" id="barbeiro-nome" required placeholder="Nome do profissional">
+                </div>
+                <div class="campo">
+                    <label>Especialidades</label>
+                    <input type="text" id="barbeiro-espec" placeholder="Ex: Degradê, Barboterapia">
+                </div>
+                <button type="submit" class="btn btn-primario btn-bloco">Salvar Barbeiro</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-agendamento" class="modal-fundo oculto">
+        <div class="modal-caixa">
+            <button class="modal-fechar">×</button>
+            <h3>Editar Agendamento</h3>
+            <form id="form-edit-agendamento">
+                <input type="hidden" id="edit-agendamento-id">
+                <div class="campo">
+                    <label>Data</label>
+                    <input type="date" id="edit-data" required>
+                </div>
+                <div class="campo">
+                    <label>Horário</label>
+                    <input type="time" id="edit-horario" required>
+                </div>
+                <div class="campo">
+                    <label>Barbeiro</label>
+                    <select id="edit-barbeiro" required></select>
+                </div>
+                <div class="campo">
+                    <label>Serviço</label>
+                    <select id="edit-servico" required></select>
+                </div>
+                <button type="submit" class="btn btn-primario btn-bloco">Atualizar Agendamento</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notificações (Toasts) -->
+    <div id="toast-container"></div>
+
+    <script src="js/admin.js"></script>
+</body>
+</html>

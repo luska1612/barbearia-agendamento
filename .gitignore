@@ -1,0 +1,11 @@
+# Local configuration
+settings.local.json
+
+# IDE / Editor folders
+.vscode/
+.idea/
+.claude/
+
+# OS generated files
+Thumbs.db
+.DS_Store

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[NOME DA BARBEARIA] — Barbearia & Salão de Barba</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <!-- =========================================================================
+     CABEÇALHO
+     ========================================================================= -->
+  <header>
+    <div class="barra-utilitaria">
+      <div class="container">
+        <a href="tel:+5500000000000">📞 (00) 00000-0000</a>
+        <a href="#" id="link-meus-agendamentos">👤 Meus agendamentos</a>
+      </div>
+    </div>
+    <nav class="principal container">
+      <div class="marca">
+        <div class="marca-logo">B</div>
+        <span class="marca-nome">[NOME DA<span> BARBEARIA</span>]</span>
+      </div>
+      <ul class="menu-links" id="menu-links">
+        <li><a href="#inicio" class="fechar-menu">Início</a></li>
+        <li><a href="#servicos" class="fechar-menu">Serviços</a></li>
+        <li><a href="#agendar" class="fechar-menu">Agendar</a></li>
+        <li><a href="#contato" class="fechar-menu">Contato</a></li>
+      </ul>
+      <button class="btn-menu-mobile" id="btn-menu-mobile" aria-label="Abrir menu"><span></span></button>
+    </nav>
+  </header>
+
+  <!-- =========================================================================
+     HERO
+     ========================================================================= -->
+  <section id="inicio" class="hero">
+    <div class="container">
+      <div class="hero-texto">
+        <div class="eyebrow">Barbearia clássica desde sempre</div>
+        <h1>Tradição na navalha,<br><em>estilo</em> em cada corte.</h1>
+        <p>Ambiente elegante, atendimento de barbeiros experientes e o cuidado que só uma barbearia de verdade oferece.
+          Marque seu horário em menos de um minuto — sem filas, sem ligação.</p>
+        <div class="hero-cta">
+          <a href="#agendar" class="btn btn-primario">Agende seu horário</a>
+          <a href="#servicos" class="btn btn-fantasma">Ver serviços e preços</a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-poste-grande" title="Poste de barbeiro">
+          <div class="poste-textura"></div>
+        </div>
+        <div class="hero-cartao-flutuante">
+          <div class="numero">18+</div>
+          <p>anos de tradição cuidando do visual dos nossos clientes</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divisor-poste" role="presentation"></div>
+
+  <!-- =========================================================================
+     SOBRE NÓS
+     ========================================================================= -->
+  <section id="sobre" class="secao revelar">
+    <div class="container sobre-grid">
+      <div class="sobre-imagem-placeholder">[ espaço reservado para foto do salão ]</div>
+      <div class="sobre-texto">
+        <div class="eyebrow">Sobre nós</div>
+        <h2>Mais que um corte, uma experiência</h2>
+        <p>Há mais de 18 anos, a [NOME DA BARBEARIA] é referência em cuidado masculino na região. Combinamos técnicas
+          clássicas de barbearia com tendências atuais, sempre com atenção aos detalhes que fazem a diferença no
+          resultado final.</p>
+        <p>Nossa equipe de barbeiros é formada por profissionais experientes, apaixonados pelo ofício, prontos para
+          entender o que combina com você — seja um corte clássico, um degradê moderno ou a barba perfeitamente
+          alinhada.</p>
+        <ul class="sobre-lista">
+          <li>Barbeiros experientes</li>
+          <li>Produtos premium</li>
+          <li>Ambiente climatizado</li>
+          <li>Wi-Fi e bebida cortesia</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+     SERVIÇOS
+     ========================================================================= -->
+  <section id="servicos" class="secao revelar">
+    <div class="container">
+      <div class="secao-titulo">
+        <div class="eyebrow">Serviços & preços</div>
+        <h2>Escolha o cuidado ideal para você</h2>
+        <p>Preços de referência — os valores exatos também aparecem no momento do agendamento.</p>
+      </div>
+      <div class="servicos-grid">
+        <div class="servico-card">
+          <h3>Corte de Cabelo</h3>
+          <p class="descricao">Corte na tesoura ou máquina, com acabamento e finalização.</p>
+          <div class="servico-preco"><span class="valor">R$ 40</span></div>
+          <div class="servico-duracao">~ 40 minutos</div>
+        </div>
+        <div class="servico-card">
+          <h3>Barba</h3>
+          <p class="descricao">Modelagem completa com toalha quente e navalha.</p>
+          <div class="servico-preco"><span class="valor">R$ 30</span></div>
+          <div class="servico-duracao">~ 30 minutos</div>
+        </div>
+        <div class="servico-card destaque">
+          <div class="servico-selo">Mais pedido</div>
+          <h3>Corte + Barba</h3>
+          <p class="descricao">O combo completo: cabelo e barba no mesmo horário.</p>
+          <div class="servico-preco"><span class="valor">R$ 60</span><span class="de">R$ 70</span></div>
+          <div class="servico-duracao">~ 1h10</div>
+        </div>
+        <div class="servico-card">
+          <h3>Sobrancelha</h3>
+          <p class="descricao">Design e alinhamento na navalha.</p>
+          <div class="servico-preco"><span class="valor">R$ 15</span></div>
+          <div class="servico-duracao">~ 15 minutos</div>
+        </div>
+        <div class="servico-card">
+          <h3>Corte Infantil</h3>
+          <p class="descricao">Corte para crianças até 12 anos, com paciência e cuidado extra.</p>
+          <div class="servico-preco"><span class="valor">R$ 35</span></div>
+          <div class="servico-duracao">~ 35 minutos</div>
+        </div>
+        <div class="servico-card">
+          <h3>Pigmentação de Barba</h3>
+          <p class="descricao">Uniformiza falhas e realça o desenho da barba.</p>
+          <div class="servico-preco"><span class="valor">R$ 35</span></div>
+          <div class="servico-duracao">~ 30 minutos</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divisor-poste" role="presentation"></div>
+
+  <!-- =========================================================================
+     DEPOIMENTOS (fictícios)
+     ========================================================================= -->
+  <section id="depoimentos" class="secao revelar">
+    <div class="container">
+      <div class="secao-titulo">
+        <div class="eyebrow">Depoimentos</div>
+        <h2>O que dizem nossos clientes</h2>
+      </div>
+      <div class="depoimentos-grid">
+        <div class="depoimento-card">
+          <div class="estrelas">★★★★★</div>
+          <p class="texto">"Melhor barbearia que já frequentei. O corte ficou exatamente como eu queria e o ambiente é
+            muito agradável."</p>
+          <div class="depoimento-autor">
+            <div class="depoimento-avatar">R</div>
+            <div>
+              <div class="nome">Ricardo Almeida</div>
+              <div class="servico">Corte + Barba</div>
+            </div>
+          </div>
+        </div>
+        <div class="depoimento-card">
+          <div class="estrelas">★★★★★</div>
+          <p class="texto">"Agendei pelo site em menos de um minuto e fui atendido no horário certinho. Recomendo
+            demais."</p>
+          <div class="depoimento-autor">
+            <div class="depoimento-avatar">F</div>
+            <div>
+              <div class="nome">Fábio Nunes</div>
+              <div class="servico">Corte de Cabelo</div>
+            </div>
+          </div>
+        </div>
+        <div class="depoimento-card">
+          <div class="estrelas">★★★★☆</div>
+          <p class="texto">"Profissionais atenciosos e um cuidado com a barba que eu nunca tinha visto em outro lugar."
+          </p>
+          <div class="depoimento-autor">
+            <div class="depoimento-avatar">G</div>
+            <div>
+              <div class="nome">Gustavo Lima</div>
+              <div class="servico">Barba</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+     AGENDAMENTO
+     ========================================================================= -->
+  <section id="agendar" class="secao revelar">
+    <div class="container">
+      <div class="secao-titulo">
+        <div class="eyebrow">Agendamento online</div>
+        <h2>Marque seu horário</h2>
+        <p>Escolha o serviço, o barbeiro, a data e o horário. Você verá na hora quais horários já estão ocupados.</p>
+      </div>
+
+      <div class="agendar-caixa">
+
+        <!-- ---------- VISTA: FORMULÁRIO DE AGENDAMENTO ---------- -->
+        <div id="vista-formulario">
+          <div id="area-alerta"></div>
+          <form id="form-agendamento" novalidate>
+            <div class="agendar-grid">
+
+              <!-- Coluna esquerda: dados do cliente e serviço -->
+              <div>
+                <div class="campo" id="campo-nome">
+                  <label for="input-nome">Nome completo <span class="obrig">*</span></label>
+                  <input type="text" id="input-nome" placeholder="Seu nome e sobrenome" autocomplete="name">
+                  <div class="campo-erro">Informe seu nome completo.</div>
+                </div>
+
+                <div class="duas-colunas">
+                  <div class="campo" id="campo-telefone">
+                    <label for="input-telefone">Telefone / WhatsApp <span class="obrig">*</span></label>
+                    <input type="tel" id="input-telefone" placeholder="(00) 00000-0000" autocomplete="tel">
+                    <div class="campo-erro">Informe um telefone válido.</div>
+                  </div>
+                  <div class="campo" id="campo-email">
+                    <label for="input-email">E-mail (opcional)</label>
+                    <input type="email" id="input-email" placeholder="voce@email.com" autocomplete="email">
+                    <div class="campo-erro">Informe um e-mail válido.</div>
+                  </div>
+                </div>
+
+                <div class="campo" id="campo-servico">
+                  <label for="select-servico">Serviço <span class="obrig">*</span></label>
+                  <select id="select-servico">
+                    <option value="" disabled selected>Selecione um serviço</option>
+                    <option value="Corte de Cabelo|40">Corte de Cabelo — R$ 40</option>
+                    <option value="Barba|30">Barba — R$ 30</option>
+                    <option value="Corte + Barba|60">Corte + Barba — R$ 60 (com desconto)</option>
+                    <option value="Sobrancelha|15">Sobrancelha — R$ 15</option>
+                    <option value="Corte Infantil|35">Corte Infantil — R$ 35</option>
+                    <option value="Pigmentação de Barba|35">Pigmentação de Barba — R$ 35</option>
+                  </select>
+                  <div class="campo-erro">Selecione um serviço.</div>
+                </div>
+
+                <div class="campo" id="campo-barbeiro">
+                  <label for="select-barbeiro">Barbeiro</label>
+                  <select id="select-barbeiro">
+                    <option value="Sem preferência" selected>Sem preferência</option>
+                    <option value="Marcos Silva">Marcos Silva</option>
+                    <option value="Rafael Souza">Rafael Souza</option>
+                    <option value="Diego Santos">Diego Santos</option>
+                  </select>
+                </div>
+
+                <div class="campo" id="campo-data-oculto">
+                  <label>Data e horário selecionados</label>
+                  <input type="text" id="resumo-data-horario" placeholder="Escolha ao lado no calendário" readonly>
+                  <div class="campo-erro">Escolha uma data e um horário disponível.</div>
+                </div>
+
+                <button type="submit" class="btn btn-primario btn-bloco" id="btn-confirmar-agendamento">Confirmar
+                  agendamento</button>
+              </div>
+
+              <!-- Coluna direita: calendário + horários -->
+              <div>
+                <div class="calendario">
+                  <div class="calendario-cabecalho">
+                    <button type="button" class="calendario-nav" id="mes-anterior" aria-label="Mês anterior">‹</button>
+                    <div class="mes-ano" id="texto-mes-ano"></div>
+                    <button type="button" class="calendario-nav" id="mes-seguinte" aria-label="Próximo mês">›</button>
+                  </div>
+                  <div class="calendario-semana">
+                    <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+                  </div>
+                  <div class="calendario-dias" id="grade-calendario"></div>
+                  <div class="calendario-legenda">
+                    <span><i class="pontinho" style="background:var(--dourado)"></i> Selecionado</span>
+                    <span><i class="pontinho" style="background:rgba(255,255,255,.2)"></i> Indisponível / passado</span>
+                  </div>
+                </div>
+
+                <div class="horarios-titulo">Horários (intervalos de 30 min · 08h às 20h)</div>
+                <div id="area-horarios">
+                  <div class="mensagem-sem-data">Selecione uma data no calendário para ver os horários.</div>
+                </div>
+              </div>
+
+            </div>
+          </form>
+        </div>
+
+        <!-- ---------- VISTA: CONFIRMAÇÃO ---------- -->
+        <div id="vista-confirmacao" class="confirmacao oculto">
+          <div class="icone">✅</div>
+          <h3>Agendamento confirmado!</h3>
+          <p class="sub">Seu horário foi reservado com sucesso.</p>
+          <div class="resumo-agendamento" id="resumo-confirmacao"></div>
+          <p class="whatsapp-aviso">📲 Em breve enviaremos uma confirmação para seu WhatsApp.</p>
+          <button class="btn btn-primario" id="btn-voltar-inicio">Voltar para a página inicial</button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="divisor-poste" role="presentation"></div>
+
+  <!-- =========================================================================
+     RODAPÉ / CONTATO
+     ========================================================================= -->
+  <footer id="contato">
+    <div class="container">
+      <div class="rodape-grid">
+        <div class="rodape-marca">
+          <div class="marca">
+            <div class="marca-logo">B</div>
+            <span class="marca-nome">[NOME DA<span> BARBEARIA</span>]</span>
+          </div>
+          <p>Barbearia clássica com atendimento de excelência. Cuidando do seu visual com tradição, técnica e produtos
+            de qualidade.</p>
+          <div class="rodape-social">
+            <a href="#" aria-label="Instagram">IG</a>
+            <a href="#" aria-label="Facebook">FB</a>
+            <a href="#" aria-label="WhatsApp">WA</a>
+          </div>
+        </div>
+        <div class="rodape-col">
+          <h4>Contato</h4>
+          <ul>
+            <li>📍 Rua Exemplo, 123 — Centro</li>
+            <li>📞 (00) 00000-0000</li>
+            <li>✉️ contato@[nomedabarbearia].com.br</li>
+          </ul>
+        </div>
+        <div class="rodape-col">
+          <h4>Horário de funcionamento</h4>
+          <ul>
+            <li>Segunda a Sábado: 08h às 20h</li>
+            <li>Domingo: Fechado</li>
+          </ul>
+        </div>
+      </div>
+      <div class="rodape-base">
+        &copy; <span id="ano-atual"></span> [NOME DA BARBEARIA]. Todos os direitos reservados.
+      </div>
+    </div>
+  </footer>
+
+  <!-- =========================================================================
+     MODAL "MEUS AGENDAMENTOS"
+     ========================================================================= -->
+  <div id="modal-meus-agendamentos" class="modal-fundo oculto">
+    <div class="modal-caixa">
+      <button class="modal-fechar" id="fechar-modal" aria-label="Fechar">×</button>
+      <h3>Meus agendamentos</h3>
+      <p class="sub">Digite o telefone usado no agendamento para localizar e, se precisar, cancelar.</p>
+      <div class="campo">
+        <label for="input-busca-telefone">Telefone / WhatsApp</label>
+        <input type="tel" id="input-busca-telefone" placeholder="(00) 00000-0000">
+      </div>
+      <button class="btn btn-primario btn-bloco" id="btn-buscar-agendamentos">Buscar meus agendamentos</button>
+      <div class="lista-agendamentos" id="lista-agendamentos-cliente"></div>
+    </div>
+  </div>
+
+  <script src="js/script.js"></script>
+</body>
+
+</html>

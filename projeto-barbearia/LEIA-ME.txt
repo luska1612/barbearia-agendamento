@@ -1,0 +1,61 @@
+BARBEARIA - SITE COM SISTEMA DE AGENDAMENTO ONLINE
+====================================================
+
+ESTRUTURA DO PROJETO
+---------------------
+projeto-barbearia/
+  index.html      -> estrutura HTML da página
+  css/
+    style.css     -> toda a estilização (cores, layout, responsivo, animações)
+  js/
+    script.js     -> toda a lógica (calendário, validação, agendamentos)
+  LEIA-ME.txt     -> este arquivo
+
+COMO USAR
+---------
+1. Mantenha os 3 itens juntos, na MESMA estrutura de pastas acima
+   (o index.html referencia "css/style.css" e "js/script.js", então
+   não mova os arquivos de lugar nem renomeie as pastas).
+2. Dê duplo clique em "index.html" para abrir no navegador.
+   - Funciona offline; a única dependência externa é o Google Fonts
+     (opcional - se não houver internet, o site usa fontes do sistema).
+3. Para colocar no ar, suba a pasta inteira "projeto-barbearia" em
+   qualquer hospedagem (Hostinger, Vercel, Netlify, GitHub Pages, etc).
+
+PERSONALIZAR
+------------
+No arquivo index.html, troque:
+  - "[NOME DA BARBEARIA]"        -> nome real da barbearia (aparece 3x)
+  - "(00) 00000-0000"            -> telefone real
+  - "Rua Exemplo, 123 — Centro"  -> endereço real
+  - links "#" dos ícones sociais -> links reais do Instagram/Facebook/WhatsApp
+  - preços e nomes dos serviços dentro de <select id="select-servico"> e
+    na seção "servicos-grid"
+  - nomes dos barbeiros dentro de <select id="select-barbeiro">
+
+Cores, fontes e espaçamentos ficam todos no início do arquivo
+css/style.css, dentro do bloco ":root { ... }" (variáveis --preto,
+--dourado, --fonte-titulo, etc.) — mude ali para trocar a identidade
+visual inteira de uma vez.
+
+ATIVAR PERSISTÊNCIA COM localStorage (opcional)
+------------------------------------------------
+Dentro de js/script.js, procure o objeto "BancoDeDados" (comentários
+com o emoji 🔓) e descomente as duas linhas indicadas. Isso faz os
+agendamentos sobreviverem a um recarregamento da página. Já funciona
+normalmente quando o site está fora do Claude.ai (no seu navegador
+local ou hospedado); dentro do Claude.ai essas linhas ficam bloqueadas
+por segurança do ambiente de pré-visualização.
+
+TESTANDO O SISTEMA DE AGENDAMENTO
+----------------------------------
+O site já vem com 3 agendamentos de exemplo (amanhã às 10h, amanhã às
+14h, depois de amanhã às 9h). Para testar a validação de conflito:
+  1. Vá até "Agendar"
+  2. Selecione a data de amanhã no calendário
+  3. Tente clicar no horário 10:00 -> aparece em vermelho e bloqueado
+  4. Escolha um horário verde (livre), preencha o formulário e confirme
+
+Para testar "Meus agendamentos": clique em "Meus agendamentos" no topo
+e busque por um destes telefones de exemplo:
+  (11) 91234-5678  |  (11) 99876-5432  |  (11) 98765-1234
