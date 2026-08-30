@@ -4,15 +4,15 @@
    Bordô é usado APENAS no elemento-assinatura (a navalha / listras do poste)
    ========================================================================== */
 :root {
-  --preto: #1a1a1a;
-  --preto-fundo: #0e0e0e;
-  --carvao: #2c2c2c;
-  --carvao-claro: #3a3a3a;
-  --dourado: #c9a84c;
-  --dourado-claro: #e3c877;
+  --preto: #120a22;
+  --preto-fundo: #0a0514;
+  --carvao: #1f1233;
+  --carvao-claro: #2b1b45;
+  --dourado: #6a468f;
+  --dourado-claro: #8a6bb3;
   --branco: #ffffff;
-  --off-white: #f2ede0;
-  --bordo: #6e1f24;
+  --off-white: #eeeaf5;
+  --bordo: #4e2a84;
   --verde-disp: #3fae5c;
   --vermelho-indisp: #c0392b;
   --fonte-titulo: "Playfair Display", Georgia, serif;
