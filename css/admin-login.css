@@ -1,0 +1,63 @@
+.login-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--preto-fundo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+}
+
+.login-box {
+    background: var(--carvao);
+    padding: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--dourado);
+    box-shadow: var(--sombra);
+    width: 100%;
+    max-width: 350px;
+    text-align: center;
+    color: var(--branco);
+}
+
+.login-box h2 {
+    font-family: var(--fonte-titulo);
+    margin-bottom: 10px;
+    color: var(--dourado);
+}
+
+.login-box p {
+    font-size: 0.9rem;
+    margin-bottom: 25px;
+    opacity: 0.8;
+}
+
+.login-box .campo {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.login-box .campo label {
+    display: block;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+    color: rgba(255,255,255,0.7);
+}
+
+.login-box .campo input {
+    width: 100%;
+    padding: 12px;
+    background: var(--preto-fundo);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 5px;
+    color: white;
+    font-family: inherit;
+}
+
+.login-box .error-msg {
+    color: var(--vermelho-indisp);
+    font-size: 0.8rem;
+    margin-top: 15px;
+    display: none;
+}

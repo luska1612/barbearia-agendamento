@@ -9,12 +9,28 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/admin-login.css">
 </head>
-<body>
+<body class="admin-body">
 
-    <div class="admin-wrapper">
-        <!-- Menu Lateral -->
-        <aside class="admin-sidebar">
+    <!-- TELA DE LOGIN -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box">
+            <h2 style="font-family: var(--fonte-titulo); margin-bottom: 10px;">Painel Administrativo</h2>
+            <p style="font-size: 0.9rem; margin-bottom: 20px; opacity: 0.8;">Por favor, insira a senha para acessar</p>
+            <div class="campo" style="margin-bottom: 20px;">
+                <input type="password" id="admin-password" placeholder="Senha" style="width: 100%; padding: 12px; background: var(--preto-fundo); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: white;">
+            </div>
+            <button id="login-btn" class="btn btn-primario btn-bloco">Entrar</button>
+            <p id="login-error" style="color: var(--vermelho-indisp); font-size: 0.8rem; margin-top: 15px; display: none;">Senha incorreta!</p>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO DO ADMIN (OCULTO POR PADRÃO) -->
+    <div id="admin-main-content" class="oculto">
+        <div class="admin-wrapper">
+            <!-- Menu Lateral -->
+            <aside class="admin-sidebar">
             <div class="sidebar-logo">
                 <div class="marca-logo">B</div>
                 <span class="marca-nome">Admin <span style="color:var(--dourado)">Painel</span></span>
@@ -253,6 +269,7 @@
             </div>
         </main>
     </div>
+</div>
 
     <!-- MODAIS -->
     <div id="modal-servico" class="modal-fundo oculto">
@@ -329,6 +346,7 @@
     <!-- Notificações (Toasts) -->
     <div id="toast-container"></div>
 
+    <script src="js/auth.js"></script>
     <script src="js/admin.js"></script>
 </body>
 </html>
