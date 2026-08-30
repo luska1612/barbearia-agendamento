@@ -1,6 +1,12 @@
 # Local configuration
 settings.local.json
 
+# Backend / env
+server/node_modules/
+server/data/
+server/.env
+.env
+
 # IDE / Editor folders
 .vscode/
 .idea/

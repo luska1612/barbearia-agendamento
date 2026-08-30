@@ -1,46 +1,102 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // Senha "admin123" codificada em Base64 para não ficar em texto puro no arquivo
-    // aG1pbix3b3JsZDEyM3S= -> Não, vou usar a string correta de admin123
-    const encodedPass = "YWRtaW4xMjM="; // 'admin123' em Base64
+/* ==========================================================================
+   AUTH — login do painel admin via API (JWT) com fallback local
+   ========================================================================== */
+document.addEventListener('DOMContentLoaded', async () => {
+  const API = window.API || null;
+  const USE_API = !!API;
+  const encodedPass = "YWRtaW4xMjM="; // 'admin123' em Base64 — fallback se API offline
 
-    const loginOverlay = document.getElementById('login-overlay');
-    const adminContent = document.getElementById('admin-main-content');
-    const loginBtn = document.getElementById('login-btn');
-    const passwordInput = document.getElementById('admin-password');
-    const errorMsg = document.getElementById('login-error');
+  const loginOverlay = document.getElementById('login-overlay');
+  const adminContent = document.getElementById('admin-main-content');
+  const loginBtn = document.getElementById('login-btn');
+  const passwordInput = document.getElementById('admin-password');
+  const errorMsg = document.getElementById('login-error');
 
-    if (!loginBtn || !passwordInput) return;
+  if (!loginBtn || !passwordInput) return;
 
-    // Verifica se já está autenticado na sessão
-    if (sessionStorage.getItem('adminAuth') === 'true') {
-        if (loginOverlay) loginOverlay.classList.add('oculto');
-        if (adminContent) adminContent.classList.remove('oculto');
+  function showAdmin() {
+    if (loginOverlay) loginOverlay.classList.add('oculto');
+    if (adminContent) adminContent.classList.remove('oculto');
+  }
+  function showLogin() {
+    if (loginOverlay) loginOverlay.classList.remove('oculto');
+    if (adminContent) adminContent.classList.add('oculto');
+  }
+
+  // Verifica sessão existente
+  if (USE_API) {
+    const token = API.getToken();
+    if (token) {
+      try {
+        await API.me();
+        showAdmin();
+      } catch (_) {
+        API.clearToken();
+        sessionStorage.removeItem('adminAuth');
+        showLogin();
+      }
+    } else if (sessionStorage.getItem('adminAuth') === 'true') {
+      // Sessão legada sem JWT — tenta manter logado, mas primeira chamada protegida vai exigir login
+      showAdmin();
     } else {
-        if (loginOverlay) loginOverlay.classList.remove('oculto');
-        if (adminContent) adminContent.classList.add('oculto');
+      showLogin();
+    }
+  } else {
+    if (sessionStorage.getItem('adminAuth') === 'true') showAdmin();
+    else showLogin();
+  }
+
+  async function doLogin() {
+    const inputPass = passwordInput.value.trim();
+    if (!inputPass) {
+      if (errorMsg) { errorMsg.textContent = 'Digite a senha.'; errorMsg.style.display = 'block'; }
+      return;
     }
 
-    loginBtn.addEventListener('click', () => {
-        const inputPass = passwordInput.value.trim();
-        
-        // Converte a senha digitada para Base64 para comparar com a salva
-        const encodedInput = btoa(inputPass);
-
-        if (encodedInput === encodedPass) {
-            sessionStorage.setItem('adminAuth', 'true');
-            if (loginOverlay) loginOverlay.classList.add('oculto');
-            if (adminContent) adminContent.classList.remove('oculto');
-            if (errorMsg) errorMsg.style.display = 'none';
-        } else {
-            if (errorMsg) errorMsg.style.display = 'block';
-            passwordInput.value = '';
+    // Tenta via API primeiro
+    if (USE_API) {
+      try {
+        await API.login(inputPass);
+        sessionStorage.setItem('adminAuth', 'true');
+        if (errorMsg) errorMsg.style.display = 'none';
+        passwordInput.value = '';
+        showAdmin();
+        // Se admin.js já carregou, recarrega dados com token novo
+        if (window.adminApp && typeof window.adminApp.refresh === 'function') {
+          window.adminApp.refresh();
         }
-    });
-
-    // Permitir apertar "Enter" para entrar
-    passwordInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            loginBtn.click();
+        return;
+      } catch (err) {
+        // Credencial errada reportada pela API — não cai para fallback local
+        if (err.status === 401) {
+          if (errorMsg) { errorMsg.textContent = 'Senha incorreta!'; errorMsg.style.display = 'block'; }
+          passwordInput.value = '';
+          return;
         }
-    });
+        // Erro de rede — cai para verificação local
+        console.warn('API /auth/login falhou, tentando fallback local', err.message || err);
+      }
+    }
+
+    // Fallback local (btoa)
+    try {
+      const encodedInput = btoa(inputPass);
+      if (encodedInput === encodedPass) {
+        sessionStorage.setItem('adminAuth', 'true');
+        if (errorMsg) errorMsg.style.display = 'none';
+        passwordInput.value = '';
+        showAdmin();
+      } else {
+        if (errorMsg) { errorMsg.textContent = 'Senha incorreta!'; errorMsg.style.display = 'block'; }
+        passwordInput.value = '';
+      }
+    } catch (_) {
+      if (errorMsg) { errorMsg.textContent = 'Erro ao validar senha.'; errorMsg.style.display = 'block'; }
+    }
+  }
+
+  loginBtn.addEventListener('click', doLogin);
+  passwordInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') doLogin();
+  });
 });

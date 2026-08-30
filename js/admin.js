@@ -1,9 +1,12 @@
 /* ==========================================================================
-   LÓGICA DO PAINEL ADMINISTRATIVO
+   LÓGICA DO PAINEL ADMINISTRATIVO — com API REST + fallback localStorage
    ========================================================================== */
 
 (function () {
     'use strict';
+
+    const API = window.API || null;
+    const USE_API = !!API;
 
     // --- CONSTANTES E CONFIGURAÇÕES ---
     const STORAGE_KEYS = {
@@ -17,7 +20,7 @@
         abertura: '08:00',
         fechamento: '20:00',
         intervalo: 30,
-        diasFuncionamento: [1, 2, 3, 4, 5, 6], // Seg a Sáb
+        diasFuncionamento: [1, 2, 3, 4, 5, 6],
         localStorageAtivo: true
     };
 
@@ -48,11 +51,13 @@
     // --- UTILITÁRIOS ---
     const utils = {
         save(key, data) {
-            localStorage.setItem(key, JSON.stringify(data));
+            try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
         },
         load(key, fallback) {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : fallback;
+            try {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : fallback;
+            } catch (_) { return fallback; }
         },
         formatDateBR(isoDate) {
             if (!isoDate) return '';
@@ -67,6 +72,7 @@
         },
         showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
+            if (!container) return;
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
@@ -80,14 +86,55 @@
         }
     };
 
+    function handle401(err) {
+        if (err && err.status === 401) {
+            if (API) API.clearToken();
+            sessionStorage.removeItem('adminAuth');
+            utils.showToast('Sessão expirada. Faça login novamente.', 'error');
+            const overlay = document.getElementById('login-overlay');
+            const content = document.getElementById('admin-main-content');
+            if (overlay) overlay.classList.remove('oculto');
+            if (content) content.classList.add('oculto');
+            return true;
+        }
+        return false;
+    }
+
     // --- GESTÃO DE DADOS ---
-    function syncData() {
+    async function syncData() {
+        if (USE_API) {
+            try {
+                const [agendamentos, servicos, barbeiros, config] = await Promise.all([
+                    API.listAppointments().catch(() => null),
+                    API.listServices().catch(() => null),
+                    API.listBarbers().catch(() => null),
+                    API.getConfig().catch(() => null),
+                ]);
+                if (Array.isArray(agendamentos)) state.agendamentos = agendamentos;
+                else state.agendamentos = utils.load(STORAGE_KEYS.AGENDAMENTOS, []);
+                if (Array.isArray(servicos) && servicos.length) state.servicos = servicos;
+                else state.servicos = utils.load(STORAGE_KEYS.SERVICOS, DEFAULT_SERVICOS);
+                if (Array.isArray(barbeiros) && barbeiros.length) state.barbeiros = barbeiros;
+                else state.barbeiros = utils.load(STORAGE_KEYS.BARBEIROS, DEFAULT_BARBEIROS);
+                if (config && config.abertura) state.config = { ...DEFAULT_CONFIG, ...config, diasFuncionamento: config.diasFuncionamento || DEFAULT_CONFIG.diasFuncionamento };
+                else state.config = utils.load(STORAGE_KEYS.CONFIG, DEFAULT_CONFIG);
+
+                // cache local para modo offline
+                utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
+                utils.save(STORAGE_KEYS.SERVICOS, state.servicos);
+                utils.save(STORAGE_KEYS.BARBEIROS, state.barbeiros);
+                utils.save(STORAGE_KEYS.CONFIG, state.config);
+                return;
+            } catch (e) {
+                if (handle401(e)) return;
+                console.warn('syncData via API falhou, usando localStorage', e.message || e);
+            }
+        }
+        // fallback localStorage
         state.agendamentos = utils.load(STORAGE_KEYS.AGENDAMENTOS, []);
         state.servicos = utils.load(STORAGE_KEYS.SERVICOS, DEFAULT_SERVICOS);
         state.barbeiros = utils.load(STORAGE_KEYS.BARBEIROS, DEFAULT_BARBEIROS);
         state.config = utils.load(STORAGE_KEYS.CONFIG, DEFAULT_CONFIG);
-
-        // Se for a primeira vez, salva os defaults
         if (!localStorage.getItem(STORAGE_KEYS.SERVICOS)) utils.save(STORAGE_KEYS.SERVICOS, DEFAULT_SERVICOS);
         if (!localStorage.getItem(STORAGE_KEYS.BARBEIROS)) utils.save(STORAGE_KEYS.BARBEIROS, DEFAULT_BARBEIROS);
         if (!localStorage.getItem(STORAGE_KEYS.CONFIG)) utils.save(STORAGE_KEYS.CONFIG, DEFAULT_CONFIG);
@@ -96,18 +143,14 @@
     // --- NAVEGAÇÃO ---
     function setupNavigation() {
         document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', async () => {
                 const section = item.getAttribute('data-section');
-
                 document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
                 item.classList.add('active');
-
                 document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-                document.getElementById(section).classList.add('active');
-
+                const target = document.getElementById(section);
+                if (target) target.classList.add('active');
                 state.currentSection = section;
-
-                // Atualiza Títulos
                 const titles = {
                     dashboard: { t: 'Dashboard', s: 'Visão geral do seu negócio' },
                     agendamentos: { t: 'Agendamentos', s: 'Gerencie as reservas de clientes' },
@@ -115,17 +158,18 @@
                     barbeiros: { t: 'Barbeiros', s: 'Gestão da equipe profissional' },
                     configuracoes: { t: 'Configurações', s: 'Ajustes do sistema e horários' }
                 };
-                document.getElementById('section-title').textContent = titles[section].t;
-                document.getElementById('section-subtitle').textContent = titles[section].s;
-
-                renderSection();
+                const titleEl = document.getElementById('section-title');
+                const subEl = document.getElementById('section-subtitle');
+                if (titleEl) titleEl.textContent = titles[section].t;
+                if (subEl) subEl.textContent = titles[section].s;
+                await renderSection();
             });
         });
     }
 
-    function renderSection() {
+    async function renderSection() {
         switch (state.currentSection) {
-            case 'dashboard': renderDashboard(); break;
+            case 'dashboard': await renderDashboard(); break;
             case 'agendamentos': renderAppointments(); break;
             case 'servicos': renderServices(); break;
             case 'barbeiros': renderBarbers(); break;
@@ -134,49 +178,61 @@
     }
 
     // --- DASHBOARD ---
-    function renderDashboard() {
+    async function renderDashboard() {
+        // Tenta endpoint agregado quando disponível
+        if (USE_API) {
+            try {
+                const dash = await API.getDashboard();
+                document.getElementById('stat-hoje').textContent = dash.hoje ?? 0;
+                document.getElementById('stat-semana').textContent = dash.semana ?? 0;
+                document.getElementById('stat-mes').textContent = dash.mes ?? 0;
+                document.getElementById('stat-receita').textContent = utils.formatCurrency(dash.receita ?? 0);
+                const chart = document.getElementById('agenda-chart');
+                chart.innerHTML = '';
+                const porDia = dash.porDiaSemana || [0,0,0,0,0,0];
+                const max = Math.max(...porDia, 1);
+                porDia.forEach(count => {
+                    const bar = document.createElement('div');
+                    bar.className = 'chart-bar';
+                    bar.style.height = `${(count / max) * 100}%`;
+                    bar.setAttribute('data-value', count);
+                    chart.appendChild(bar);
+                });
+                return;
+            } catch (e) {
+                if (handle401(e)) return;
+                // cai para cálculo local
+            }
+        }
+
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
-
         const dataHojeISO = hoje.toISOString().split('T')[0];
-
-        // Stats
         const agendamentosHoje = state.agendamentos.filter(a => a.data === dataHojeISO).length;
-
         const seteDiasAtras = new Date(hoje);
         seteDiasAtras.setDate(hoje.getDate() - 7);
         const agendamentosSemana = state.agendamentos.filter(a => new Date(a.data) >= seteDiasAtras).length;
-
         const mesAtual = hoje.getMonth();
         const anoAtual = hoje.getFullYear();
         const agendamentosMes = state.agendamentos.filter(a => {
-            const d = new Date(a.data);
+            const d = new Date(a.data + 'T00:00:00');
             return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
         }).length;
-
-        const receita = state.agendamentos.reduce((acc, a) => acc + (Number(a.valor) || 0), 0);
-
+        // valor pode vir como servico.preco
+        const receita = state.agendamentos.reduce((acc, a) => acc + (Number(a.valor ?? a.servico?.preco) || 0), 0);
         document.getElementById('stat-hoje').textContent = agendamentosHoje;
         document.getElementById('stat-semana').textContent = agendamentosSemana;
         document.getElementById('stat-mes').textContent = agendamentosMes;
         document.getElementById('stat-receita').textContent = utils.formatCurrency(receita);
-
-        // Gráfico Simples
         const chart = document.getElementById('agenda-chart');
         chart.innerHTML = '';
-
-        const diasSemana = [1, 2, 3, 4, 5, 6]; // Seg-Sáb
-        const counts = diasSemana.map(dia => {
-            return state.agendamentos.filter(a => new Date(a.data).getDay() === dia).length;
-        });
-
+        const diasSemana = [1, 2, 3, 4, 5, 6];
+        const counts = diasSemana.map(dia => state.agendamentos.filter(a => new Date(a.data + 'T00:00:00').getDay() === dia).length);
         const max = Math.max(...counts, 1);
-
         counts.forEach(count => {
             const bar = document.createElement('div');
             bar.className = 'chart-bar';
-            const height = (count / max) * 100;
-            bar.style.height = `${height}%`;
+            bar.style.height = `${(count / max) * 100}%`;
             bar.setAttribute('data-value', count);
             chart.appendChild(bar);
         });
@@ -184,41 +240,42 @@
 
     // --- AGENDAMENTOS ---
     function renderAppointments() {
-        const dateFilter = document.getElementById('filter-date').value;
-        const barberFilter = document.getElementById('filter-barber').value;
-        const statusFilter = document.getElementById('filter-status').value;
-
+        const dateFilter = document.getElementById('filter-date')?.value || '';
+        const barberFilter = document.getElementById('filter-barber')?.value || 'todos';
+        const statusFilter = document.getElementById('filter-status')?.value || 'todos';
         const tableBody = document.getElementById('table-agendamentos');
+        if (!tableBody) return;
         tableBody.innerHTML = '';
-
         let filtered = [...state.agendamentos];
-
         if (dateFilter) filtered = filtered.filter(a => a.data === dateFilter);
         if (barberFilter !== 'todos') filtered = filtered.filter(a => a.barbeiro === barberFilter);
-        if (statusFilter !== 'todos') filtered = filtered.filter(a => a.status === statusFilter);
-
-        // Ordenação simples por data/hora
+        if (statusFilter !== 'todos') {
+            const sLow = statusFilter.toLowerCase();
+            filtered = filtered.filter(a => (a.status || 'agendado').toLowerCase() === sLow);
+        }
         filtered.sort((a, b) => (a.data + a.horario).localeCompare(b.data + b.horario));
-
         if (filtered.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#888;">Nenhum agendamento encontrado.</td></tr>';
             return;
         }
-
         filtered.forEach(a => {
             const row = document.createElement('tr');
-            const statusClass = `status-${(a.status || 'Confirmado').toLowerCase()}`;
-
+            const statusRaw = a.status || 'agendado';
+            const statusLabel = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1);
+            const statusClass = `status-${statusRaw.toLowerCase()}`;
+            const nome = a.cliente?.nome || a.nome || '';
+            const telefone = a.cliente?.telefone || a.telefone || '';
+            const servicoNome = a.servico?.nome || a.servico || '';
             row.innerHTML = `
                 <td>${utils.formatDateBR(a.data)} <br> <small>${a.horario}</small></td>
-                <td>${utils.escaparHTML(a.nome)}</td>
-                <td>${utils.escaparHTML(a.telefone)}</td>
-                <td>${utils.escaparHTML(a.servico)}</td>
-                <td>${utils.escaparHTML(a.barbeiro)}</td>
-                <td><span class="status-badge ${statusClass}">${a.status || 'Confirmado'}</span></td>
+                <td>${utils.escaparHTML(nome)}</td>
+                <td>${utils.escaparHTML(telefone)}</td>
+                <td>${utils.escaparHTML(servicoNome)}</td>
+                <td>${utils.escaparHTML(a.barbeiro || '')}</td>
+                <td><span class="status-badge ${statusClass}">${utils.escaparHTML(statusLabel)}</span></td>
                 <td>
                     <button class="btn-action btn-edit" onclick="adminApp.editAppointment('${a.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-complete" onclick="adminApp.updateStatus('${a.id}', 'Concluído')"><i class="fas fa-check"></i></button>
+                    <button class="btn-action btn-complete" onclick="adminApp.updateStatus('${a.id}', 'realizado')"><i class="fas fa-check"></i></button>
                     <button class="btn-action btn-delete" onclick="adminApp.cancelAppointment('${a.id}')"><i class="fas fa-times"></i></button>
                 </td>
             `;
@@ -229,8 +286,8 @@
     // --- SERVIÇOS ---
     function renderServices() {
         const tableBody = document.getElementById('table-servicos');
+        if (!tableBody) return;
         tableBody.innerHTML = '';
-
         state.servicos.forEach(s => {
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -249,13 +306,13 @@
     // --- BARBEIROS ---
     function renderBarbers() {
         const tableBody = document.getElementById('table-barbeiros');
+        if (!tableBody) return;
         tableBody.innerHTML = '';
-
         state.barbeiros.forEach(b => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${utils.escaparHTML(b.nome)}</td>
-                <td>${utils.escaparHTML(b.especialidade)}</td>
+                <td>${utils.escaparHTML(b.especialidade || '')}</td>
                 <td>
                     <button class="btn-action btn-edit" onclick="adminApp.editBarber('${b.id}')"><i class="fas fa-edit"></i></button>
                     <button class="btn-action btn-delete" onclick="adminApp.deleteBarber('${b.id}')"><i class="fas fa-trash"></i></button>
@@ -267,28 +324,58 @@
 
     // --- CONFIGURAÇÕES ---
     function renderSettings() {
-        document.getElementById('config-abertura').value = state.config.abertura;
-        document.getElementById('config-fechamento').value = state.config.fechamento;
-        document.getElementById('config-intervalo').value = state.config.intervalo;
-        document.getElementById('config-storage').checked = state.config.localStorageAtivo;
-
-        const checks = document.querySelectorAll('.dia-check');
-        checks.forEach(chk => {
+        const ab = document.getElementById('config-abertura');
+        const fe = document.getElementById('config-fechamento');
+        const it = document.getElementById('config-intervalo');
+        const ls = document.getElementById('config-storage');
+        if (ab) ab.value = state.config.abertura;
+        if (fe) fe.value = state.config.fechamento;
+        if (it) it.value = state.config.intervalo;
+        if (ls) ls.checked = state.config.localStorageAtivo;
+        document.querySelectorAll('.dia-check').forEach(chk => {
             chk.checked = state.config.diasFuncionamento.includes(parseInt(chk.value));
         });
     }
 
     // --- AÇÕES DE DADOS ---
     const adminApp = {
-        cancelAppointment(id) {
-            if (confirm('Deseja realmente cancelar este agendamento?')) {
-                state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, status: 'Cancelado' } : a);
-                utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
-                utils.showToast('Agendamento cancelado com sucesso!');
-                renderAppointments();
+        async cancelAppointment(id) {
+            if (!confirm('Deseja realmente cancelar este agendamento?')) return;
+            if (USE_API) {
+                try {
+                    await API.patchStatus(id, 'cancelado');
+                    utils.showToast('Agendamento cancelado com sucesso!');
+                    await syncData();
+                    renderAppointments();
+                    await renderDashboard();
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    utils.showToast(e.message || 'Falha ao cancelar', 'error');
+                    return;
+                }
             }
+            state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, status: 'cancelado' } : a);
+            utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
+            utils.showToast('Agendamento cancelado com sucesso!');
+            renderAppointments();
         },
-        updateStatus(id, status) {
+        async updateStatus(id, status) {
+            const apiStatus = status.toLowerCase(); // realizado / cancelado etc.
+            if (USE_API) {
+                try {
+                    await API.patchStatus(id, apiStatus);
+                    utils.showToast(`Status atualizado para ${status}!`);
+                    await syncData();
+                    renderAppointments();
+                    await renderDashboard();
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    utils.showToast(e.message || 'Falha ao atualizar status', 'error');
+                    return;
+                }
+            }
             state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, status: status } : a);
             utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
             utils.showToast(`Status atualizado para ${status}!`);
@@ -297,45 +384,78 @@
         editAppointment(id) {
             const a = state.agendamentos.find(item => item.id === id);
             if (!a) return;
-
             const modal = document.getElementById('modal-agendamento');
             document.getElementById('edit-agendamento-id').value = a.id;
             document.getElementById('edit-data').value = a.data;
             document.getElementById('edit-horario').value = a.horario;
-
-            // Preencher selects de barbeiros e serviços
             const selBarber = document.getElementById('edit-barbeiro');
             const selServ = document.getElementById('edit-servico');
-            selBarber.innerHTML = state.barbeiros.map(b => `<option value="${b.nome}" ${b.nome === a.barbeiro ? 'selected' : ''}>${b.nome}</option>`).join('');
-            selServ.innerHTML = state.servicos.map(s => `<option value="${s.nome}" ${s.nome === a.servico ? 'selected' : ''}>${s.nome}</option>`).join('');
-
+            const servicoNomeAtual = a.servico?.nome || a.servico || '';
+            selBarber.innerHTML = state.barbeiros.map(b => `<option value="${utils.escaparHTML(b.nome)}" ${b.nome === a.barbeiro ? 'selected' : ''}>${utils.escaparHTML(b.nome)}</option>`).join('');
+            selServ.innerHTML = state.servicos.map(s => `<option value="${utils.escaparHTML(s.nome)}" ${s.nome === servicoNomeAtual ? 'selected' : ''}>${utils.escaparHTML(s.nome)}</option>`).join('');
             modal.classList.remove('oculto');
         },
-        saveAppointment() {
+        async saveAppointment() {
             const id = document.getElementById('edit-agendamento-id').value;
-            const updated = {
-                data: document.getElementById('edit-data').value,
-                horario: document.getElementById('edit-horario').value,
-                barbeiro: document.getElementById('edit-barbeiro').value,
-                servico: document.getElementById('edit-servico').value
-            };
+            const data = document.getElementById('edit-data').value;
+            const horario = document.getElementById('edit-horario').value;
+            const barbeiro = document.getElementById('edit-barbeiro').value;
+            const servicoNome = document.getElementById('edit-servico').value;
+            const servicoObj = state.servicos.find(s => s.nome === servicoNome);
 
+            if (USE_API) {
+                try {
+                    const payload = {
+                        data, horario, barbeiro,
+                        servico: servicoObj ? { nome: servicoObj.nome, preco: servicoObj.preco, duracao: servicoObj.duracao } : { nome: servicoNome }
+                    };
+                    await API.updateAppointment(id, payload);
+                    utils.showToast('Agendamento atualizado!');
+                    document.getElementById('modal-agendamento').classList.add('oculto');
+                    await syncData();
+                    renderAppointments();
+                    await renderDashboard();
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    const msg = e.data?.error || e.message || 'Falha ao atualizar';
+                    utils.showToast(msg, 'error');
+                    return;
+                }
+            }
+
+            const updated = { data, horario, barbeiro, servico: servicoNome };
+            // tenta manter valor coerente
+            if (servicoObj) updated.valor = servicoObj.preco;
             state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, ...updated } : a);
             utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
             utils.showToast('Agendamento atualizado!');
             document.getElementById('modal-agendamento').classList.add('oculto');
             renderAppointments();
         },
-        deleteService(id) {
-            if (confirm('Excluir este serviço?')) {
-                state.servicos = state.servicos.filter(s => s.id !== id);
-                utils.save(STORAGE_KEYS.SERVICOS, state.servicos);
-                utils.showToast('Serviço removido!');
-                renderServices();
+        async deleteService(id) {
+            if (!confirm('Excluir este serviço?')) return;
+            if (USE_API) {
+                try {
+                    await API.deleteService(id);
+                    utils.showToast('Serviço removido!');
+                    await syncData();
+                    renderServices();
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    utils.showToast(e.message || 'Falha ao excluir', 'error');
+                    return;
+                }
             }
+            state.servicos = state.servicos.filter(s => s.id !== id);
+            utils.save(STORAGE_KEYS.SERVICOS, state.servicos);
+            utils.showToast('Serviço removido!');
+            renderServices();
         },
         editService(id) {
             const s = state.servicos.find(item => item.id === id);
+            if (!s) return;
             document.getElementById('modal-servico-title').textContent = 'Editar Serviço';
             document.getElementById('servico-id').value = s.id;
             document.getElementById('servico-nome').value = s.nome;
@@ -343,171 +463,241 @@
             document.getElementById('servico-duracao').value = s.duracao;
             document.getElementById('modal-servico').classList.remove('oculto');
         },
-        saveService(e) {
+        async saveService(e) {
             e.preventDefault();
             const id = document.getElementById('servico-id').value;
-            const data = {
-                id: id || utils.generateId(),
-                nome: document.getElementById('servico-nome').value,
-                preco: parseFloat(document.getElementById('servico-preco').value),
-                duracao: parseInt(document.getElementById('servico-duracao').value)
-            };
-
-            if (id) {
-                state.servicos = state.servicos.map(s => s.id === id ? data : s);
-            } else {
-                state.servicos.push(data);
+            const nome = document.getElementById('servico-nome').value.trim();
+            const preco = parseFloat(document.getElementById('servico-preco').value);
+            const duracao = parseInt(document.getElementById('servico-duracao').value);
+            if (USE_API) {
+                try {
+                    if (id) await API.updateService(id, { nome, preco, duracao });
+                    else await API.createService({ nome, preco, duracao });
+                    utils.showToast('Serviço salvo com sucesso!');
+                    document.getElementById('modal-servico').classList.add('oculto');
+                    await syncData();
+                    renderServices();
+                    return;
+                } catch (err) {
+                    if (handle401(err)) return;
+                    utils.showToast(err.data?.error || err.message || 'Falha ao salvar serviço', 'error');
+                    return;
+                }
             }
-
+            const data = { id: id || utils.generateId(), nome, preco, duracao };
+            if (id) state.servicos = state.servicos.map(s => s.id === id ? data : s);
+            else state.servicos.push(data);
             utils.save(STORAGE_KEYS.SERVICOS, state.servicos);
             utils.showToast('Serviço salvo com sucesso!');
             document.getElementById('modal-servico').classList.add('oculto');
             renderServices();
         },
-        deleteBarber(id) {
-            if (confirm('Excluir este barbeiro?')) {
-                state.barbeiros = state.barbeiros.filter(b => b.id !== id);
-                utils.save(STORAGE_KEYS.BARBEIROS, state.barbeiros);
-                utils.showToast('Barbeiro removido!');
-                renderBarbers();
+        async deleteBarber(id) {
+            if (!confirm('Excluir este barbeiro?')) return;
+            if (USE_API) {
+                try {
+                    await API.deleteBarber(id);
+                    utils.showToast('Barbeiro removido!');
+                    await syncData();
+                    renderBarbers();
+                    // atualiza filtro de barbeiros na aba agendamentos
+                    rebuildBarberFilter();
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    utils.showToast(e.message || 'Falha ao excluir', 'error');
+                    return;
+                }
             }
+            state.barbeiros = state.barbeiros.filter(b => b.id !== id);
+            utils.save(STORAGE_KEYS.BARBEIROS, state.barbeiros);
+            utils.showToast('Barbeiro removido!');
+            renderBarbers();
+            rebuildBarberFilter();
         },
         editBarber(id) {
             const b = state.barbeiros.find(item => item.id === id);
+            if (!b) return;
             document.getElementById('modal-barbeiro-title').textContent = 'Editar Barbeiro';
             document.getElementById('barbeiro-id').value = b.id;
             document.getElementById('barbeiro-nome').value = b.nome;
-            document.getElementById('barbeiro-espec').value = b.especialidade;
+            document.getElementById('barbeiro-espec').value = b.especialidade || '';
             document.getElementById('modal-barbeiro').classList.remove('oculto');
         },
-        saveBarber(e) {
+        async saveBarber(e) {
             e.preventDefault();
             const id = document.getElementById('barbeiro-id').value;
-            const data = {
-                id: id || utils.generateId(),
-                nome: document.getElementById('barbeiro-nome').value,
-                especialidade: document.getElementById('barbeiro-espec').value
-            };
-
-            if (id) {
-                state.barbeiros = state.barbeiros.map(b => b.id === id ? data : b);
-            } else {
-                state.barbeiros.push(data);
+            const nome = document.getElementById('barbeiro-nome').value.trim();
+            const especialidade = document.getElementById('barbeiro-espec').value.trim();
+            if (USE_API) {
+                try {
+                    if (id) await API.updateBarber(id, { nome, especialidade });
+                    else await API.createBarber({ nome, especialidade });
+                    utils.showToast('Barbeiro salvo com sucesso!');
+                    document.getElementById('modal-barbeiro').classList.add('oculto');
+                    await syncData();
+                    renderBarbers();
+                    rebuildBarberFilter();
+                    return;
+                } catch (err) {
+                    if (handle401(err)) return;
+                    utils.showToast(err.data?.error || err.message || 'Falha ao salvar barbeiro', 'error');
+                    return;
+                }
             }
-
+            const data = { id: id || utils.generateId(), nome, especialidade };
+            if (id) state.barbeiros = state.barbeiros.map(b => b.id === id ? data : b);
+            else state.barbeiros.push(data);
             utils.save(STORAGE_KEYS.BARBEIROS, state.barbeiros);
             utils.showToast('Barbeiro salvo com sucesso!');
             document.getElementById('modal-barbeiro').classList.add('oculto');
             renderBarbers();
+            rebuildBarberFilter();
+        },
+        async refresh() {
+            await syncData();
+            rebuildBarberFilter();
+            await renderSection();
         }
     };
 
-    // --- EVENTOS GERAIS ---
-    function setupEventListeners() {
-        // Filtros Agendamentos
-        document.getElementById('filter-date').addEventListener('change', renderAppointments);
-        document.getElementById('filter-barber').addEventListener('change', renderAppointments);
-        document.getElementById('filter-status').addEventListener('change', renderAppointments);
-        document.getElementById('sort-date').addEventListener('click', renderAppointments);
-
-        // Modais de Serviço
-        document.getElementById('btn-novo-servico').addEventListener('click', () => {
-            document.getElementById('modal-servico-title').textContent = 'Novo Serviço';
-            document.getElementById('form-servico').reset();
-            document.getElementById('servico-id').value = '';
-            document.getElementById('modal-servico').classList.remove('oculto');
-        });
-
-        document.getElementById('form-servico').addEventListener('submit', adminApp.saveService);
-
-        // Modais de Barbeiro
-        document.getElementById('btn-novo-barbeiro').addEventListener('click', () => {
-            document.getElementById('modal-barbeiro-title').textContent = 'Novo Barbeiro';
-            document.getElementById('form-barbeiro').reset();
-            document.getElementById('barbeiro-id').value = '';
-            document.getElementById('modal-barbeiro').classList.remove('oculto');
-        });
-
-        document.getElementById('form-barbeiro').addEventListener('submit', adminApp.saveBarber);
-
-        // Modal de Agendamento (Editar)
-        document.getElementById('form-edit-agendamento').addEventListener('submit', (e) => {
-            e.preventDefault();
-            adminApp.saveAppointment();
-        });
-
-        // Fechar Modais
-        document.querySelectorAll('.modal-fechar').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.modal-fundo').forEach(m => m.classList.add('oculto'));
-            });
-        });
-
-        // Configurações
-        document.getElementById('btn-salvar-config').addEventListener('click', () => {
-            const dias = [];
-            document.querySelectorAll('.dia-check:checked').forEach(chk => dias.push(parseInt(chk.value)));
-
-            state.config = {
-                abertura: document.getElementById('config-abertura').value,
-                fechamento: document.getElementById('config-fechamento').value,
-                intervalo: parseInt(document.getElementById('config-intervalo').value),
-                diasFuncionamento: dias,
-                localStorageAtivo: document.getElementById('config-storage').checked
-            };
-            utils.save(STORAGE_KEYS.CONFIG, state.config);
-            utils.showToast('Configurações salvas!');
-        });
-
-        // Exportar
-        document.getElementById('btn-export-json').addEventListener('click', () => {
-            const data = {
-                agendamentos: state.agendamentos,
-                servicos: state.servicos,
-                barbeiros: state.barbeiros,
-                config: state.config
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `backup_barbearia_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-        });
-
-        document.getElementById('btn-export-csv').addEventListener('click', () => {
-            let csv = 'Data,Hora,Cliente,Telefone,Servico,Barbeiro,Status\n';
-            state.agendamentos.forEach(a => {
-                csv += `${a.data},${a.horario},"${a.nome}","${a.telefone}","${a.servico}","${a.barbeiro}",${a.status || 'Confirmado'}\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `agenda_barbearia_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-        });
-    }
-
-    // --- INICIALIZAÇÃO ---
-    function init() {
-        syncData();
-        setupNavigation();
-        setupEventListeners();
-
-        // Popula filtros de barbeiros
+    function rebuildBarberFilter() {
         const selBarber = document.getElementById('filter-barber');
+        if (!selBarber) return;
+        const cur = selBarber.value;
+        selBarber.innerHTML = '<option value="todos">Todos os Barbeiros</option>';
         state.barbeiros.forEach(b => {
             const opt = document.createElement('option');
             opt.value = b.nome;
             opt.textContent = b.nome;
             selBarber.appendChild(opt);
         });
-
-        renderSection();
+        if (cur) selBarber.value = cur;
     }
 
-    // Expõe funções para o HTML (onclick)
+    // --- EVENTOS GERAIS ---
+    function setupEventListeners() {
+        document.getElementById('filter-date')?.addEventListener('change', renderAppointments);
+        document.getElementById('filter-barber')?.addEventListener('change', renderAppointments);
+        document.getElementById('filter-status')?.addEventListener('change', renderAppointments);
+        document.getElementById('sort-date')?.addEventListener('click', renderAppointments);
+
+        document.getElementById('btn-novo-servico')?.addEventListener('click', () => {
+            document.getElementById('modal-servico-title').textContent = 'Novo Serviço';
+            document.getElementById('form-servico').reset();
+            document.getElementById('servico-id').value = '';
+            document.getElementById('modal-servico').classList.remove('oculto');
+        });
+        document.getElementById('form-servico')?.addEventListener('submit', adminApp.saveService);
+
+        document.getElementById('btn-novo-barbeiro')?.addEventListener('click', () => {
+            document.getElementById('modal-barbeiro-title').textContent = 'Novo Barbeiro';
+            document.getElementById('form-barbeiro').reset();
+            document.getElementById('barbeiro-id').value = '';
+            document.getElementById('modal-barbeiro').classList.remove('oculto');
+        });
+        document.getElementById('form-barbeiro')?.addEventListener('submit', adminApp.saveBarber);
+
+        document.getElementById('form-edit-agendamento')?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            adminApp.saveAppointment();
+        });
+
+        document.querySelectorAll('.modal-fechar').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.modal-fundo').forEach(m => m.classList.add('oculto'));
+            });
+        });
+        // fechar modal ao clicar no fundo
+        document.querySelectorAll('.modal-fundo').forEach(m => {
+            m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('oculto'); });
+        });
+
+        document.getElementById('btn-salvar-config')?.addEventListener('click', async () => {
+            const dias = [];
+            document.querySelectorAll('.dia-check:checked').forEach(chk => dias.push(parseInt(chk.value)));
+            const novaConfig = {
+                abertura: document.getElementById('config-abertura').value,
+                fechamento: document.getElementById('config-fechamento').value,
+                intervalo: parseInt(document.getElementById('config-intervalo').value),
+                diasFuncionamento: dias,
+                localStorageAtivo: document.getElementById('config-storage').checked
+            };
+            if (USE_API) {
+                try {
+                    const saved = await API.updateConfig(novaConfig);
+                    state.config = { ...state.config, ...saved };
+                    utils.save(STORAGE_KEYS.CONFIG, state.config);
+                    utils.showToast('Configurações salvas!');
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    utils.showToast(e.data?.error || e.message || 'Falha ao salvar', 'error');
+                    return;
+                }
+            }
+            state.config = novaConfig;
+            utils.save(STORAGE_KEYS.CONFIG, state.config);
+            utils.showToast('Configurações salvas!');
+        });
+
+        // Exportar
+        document.getElementById('btn-export-json')?.addEventListener('click', async () => {
+            if (USE_API) {
+                try {
+                    const data = await API.exportJson();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `backup_barbearia_${new Date().toISOString().split('T')[0]}.json`; a.click();
+                    URL.revokeObjectURL(url);
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    // cai para fallback local
+                }
+            }
+            const data = { agendamentos: state.agendamentos, servicos: state.servicos, barbeiros: state.barbeiros, config: state.config };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `backup_barbearia_${new Date().toISOString().split('T')[0]}.json`; a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById('btn-export-csv')?.addEventListener('click', async () => {
+            if (USE_API) {
+                try {
+                    const blob = await API.exportCsvBlob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `agenda_barbearia_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+                    URL.revokeObjectURL(url);
+                    return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                }
+            }
+            let csv = 'Data,Hora,Cliente,Telefone,Servico,Barbeiro,Status\n';
+            state.agendamentos.forEach(a => {
+                const nome = a.cliente?.nome || a.nome || '';
+                const tel = a.cliente?.telefone || a.telefone || '';
+                const serv = a.servico?.nome || a.servico || '';
+                csv += `${a.data},${a.horario},"${nome}","${tel}","${serv}","${a.barbeiro}",${a.status || 'agendado'}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `agenda_barbearia_${new Date().toISOString().split('T')[0]}.csv`; a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    // --- INICIALIZAÇÃO ---
+    async function init() {
+        await syncData();
+        setupNavigation();
+        setupEventListeners();
+        rebuildBarberFilter();
+        await renderSection();
+    }
+
     window.adminApp = adminApp;
 
     init();
