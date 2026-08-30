@@ -1161,6 +1161,11 @@ footer {
   color: var(--dourado);
   transform: translateY(-3px);
 }
+
+.social-fb {
+  border: none !important;
+  border-radius: 0 !important;
+}
 .rodape-base {
   text-align: center;
   padding-top: 26px;
