@@ -329,14 +329,11 @@
     document.getElementById(idCampo).classList.remove('invalido');
   }
   function limparTodosErros() {
-    ['campo-nome','campo-telefone','campo-email','campo-servico','campo-data-oculto']
+    ['campo-nome','campo-telefone','campo-servico','campo-data-oculto']
       .forEach(limparErroCampo);
     elAreaAlerta.innerHTML = '';
   }
 
-  function validarEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
   function validarTelefone(telefone) {
     const digitos = telefone.replace(/\D/g, '');
     return digitos.length >= 10; // DDD + número
@@ -348,7 +345,6 @@
 
     const nome = document.getElementById('input-nome').value.trim();
     const telefone = document.getElementById('input-telefone').value.trim();
-    const email = document.getElementById('input-email').value.trim();
     const servicoSelecionado = document.getElementById('select-servico').value;
     const barbeiro = document.getElementById('select-barbeiro').value;
 
@@ -360,10 +356,6 @@
     }
     if (!validarTelefone(telefone)) {
       mostrarErroCampo('campo-telefone');
-      valido = false;
-    }
-    if (email && !validarEmail(email)) {
-      mostrarErroCampo('campo-email');
       valido = false;
     }
     if (!servicoSelecionado) {
@@ -401,7 +393,7 @@
 
     const novoAgendamento = {
       id: 'AG' + Date.now(),
-      nome, telefone, email,
+      nome, telefone, email: '',
       servico: servicoNome,
       valor: Number(servicoValor),
       barbeiro,
@@ -525,15 +517,59 @@
      --------------------------------------------------------------------- */
   const btnMenuMobile = document.getElementById('btn-menu-mobile');
   const menuLinks = document.getElementById('menu-links');
-  btnMenuMobile.addEventListener('click', () => {
-    btnMenuMobile.classList.toggle('aberto');
-    menuLinks.classList.toggle('aberto');
-  });
+
+  // Overlay para escurecer o fundo e capturar toque fora do menu
+  const menuOverlay = document.createElement('div');
+  menuOverlay.className = 'menu-overlay';
+  menuOverlay.id = 'menu-overlay';
+  document.body.appendChild(menuOverlay);
+
+  function fecharMenuMobile() {
+    btnMenuMobile.classList.remove('aberto');
+    menuLinks.classList.remove('aberto');
+    menuOverlay.classList.remove('aberto');
+    document.body.style.overflow = '';
+  }
+
+  function alternarMenuMobile(e) {
+    e.stopPropagation();
+    const vaiAbrir = !menuLinks.classList.contains('aberto');
+    btnMenuMobile.classList.toggle('aberto', vaiAbrir);
+    menuLinks.classList.toggle('aberto', vaiAbrir);
+    menuOverlay.classList.toggle('aberto', vaiAbrir);
+    document.body.style.overflow = vaiAbrir ? 'hidden' : '';
+  }
+
+  btnMenuMobile.addEventListener('click', alternarMenuMobile);
+  menuOverlay.addEventListener('click', fecharMenuMobile);
+
   document.querySelectorAll('.fechar-menu').forEach(link => {
-    link.addEventListener('click', () => {
-      btnMenuMobile.classList.remove('aberto');
-      menuLinks.classList.remove('aberto');
-    });
+    link.addEventListener('click', fecharMenuMobile);
+  });
+
+  // Fechar ao tocar fora do menu (fallback caso clique não seja no overlay)
+  document.addEventListener('click', (e) => {
+    if (
+      menuLinks.classList.contains('aberto') &&
+      !menuLinks.contains(e.target) &&
+      e.target !== btnMenuMobile &&
+      !btnMenuMobile.contains(e.target)
+    ) {
+      // só fecha se o clique foi fora; o overlay já cuida da maioria dos casos
+      if (!menuOverlay.contains(e.target)) fecharMenuMobile();
+    }
+  });
+
+  // Fechar com Esc
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menuLinks.classList.contains('aberto')) {
+      fecharMenuMobile();
+    }
+  });
+
+  // Fechar ao voltar para desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 720) fecharMenuMobile();
   });
 
   /* ---------------------------------------------------------------------

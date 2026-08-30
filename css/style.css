@@ -319,6 +319,7 @@ nav.principal {
   width: 34px;
   height: 26px;
   position: relative;
+  z-index: 1001;
 }
 .btn-menu-mobile span,
 .btn-menu-mobile span::before,
@@ -349,6 +350,22 @@ nav.principal {
 }
 .btn-menu-mobile.aberto span::after {
   transform: rotate(-45deg) translate(6px, -7px);
+}
+
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--transicao),
+    visibility var(--transicao);
+}
+.menu-overlay.aberto {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* ==========================================================================
@@ -850,6 +867,40 @@ nav.principal {
   outline: none;
   border-color: var(--dourado);
 }
+
+/* Calendário nativo (date/time) — tema escuro + dourado */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+  accent-color: var(--dourado);
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.55) sepia(1) saturate(2) hue-rotate(235deg) brightness(1.15);
+  opacity: 0.85;
+  cursor: pointer;
+  transition: opacity var(--transicao), background var(--transicao);
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: rgba(106, 70, 143, 0.18);
+}
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="time"]::-webkit-datetime-edit-text {
+  color: rgba(255, 255, 255, 0.35);
+  padding: 0 2px;
+}
+input[type="date"]::-webkit-datetime-edit-month-field:focus,
+input[type="date"]::-webkit-datetime-edit-day-field:focus,
+input[type="date"]::-webkit-datetime-edit-year-field:focus,
+input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+input[type="time"]::-webkit-datetime-edit-minute-field:focus {
+  background: var(--dourado);
+  color: var(--preto);
+  outline: none;
+}
 .campo-erro {
   color: var(--vermelho-indisp);
   font-size: 0.78rem;
@@ -1325,8 +1376,16 @@ footer {
   .menu-links.aberto {
     transform: translateX(0);
   }
+  nav.principal {
+    justify-content: center;
+    position: relative;
+  }
   .btn-menu-mobile {
     display: block;
+    position: absolute;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
   }
   .barra-utilitaria .container {
     justify-content: center;

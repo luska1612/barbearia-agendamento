@@ -61,3 +61,11 @@
     margin-top: 15px;
     display: none;
 }
+
+@media (max-width: 480px) {
+    .login-overlay { padding: 16px; }
+    .login-box { padding: 24px 18px; max-width: 100%; border-radius: 10px; }
+    .login-box h2 { font-size: 1.15rem; }
+    .login-box p { font-size: 0.82rem; margin-bottom: 18px; }
+    .login-box .campo input { padding: 11px; font-size: 0.9rem; }
+}
