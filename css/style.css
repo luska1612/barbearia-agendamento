@@ -261,17 +261,17 @@ nav.principal {
   gap: 12px;
 }
 .marca-logo {
-  width: 46px;
-  height: 46px;
-  border: 2px solid var(--dourado);
-  border-radius: 50%;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--fonte-titulo);
-  font-weight: 700;
-  color: var(--dourado);
-  font-size: 1.15rem;
+  overflow: hidden;
+}
+.marca-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .marca-nome {
   font-family: var(--fonte-titulo);
