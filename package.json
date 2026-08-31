@@ -1,0 +1,12 @@
+{
+  "name": "mhcortes",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "npm --prefix server start",
+    "dev": "npm --prefix server run dev",
+    "seed": "npm --prefix server run seed"
+  }
+}

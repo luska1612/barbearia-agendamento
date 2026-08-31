@@ -10,8 +10,10 @@ const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Inicializa DB (cria schema)
-getDb();
+// Inicializa DB de forma assíncrona
+getDb().catch(err => {
+  console.error('Falha ao inicializar o banco de dados:', err);
+});
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
@@ -44,9 +46,11 @@ app.get('*', (req, res, next) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Barbearia server rodando em http://localhost:${PORT}`);
-  console.log(`API: http://localhost:${PORT}/api/health`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Barbearia server rodando em http://localhost:${PORT}`);
+    console.log(`API: http://localhost:${PORT}/api/health`);
+  });
+}
 
 module.exports = app;

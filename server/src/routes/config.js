@@ -11,34 +11,32 @@ function rowToConfig(row) {
     abertura: row.abertura,
     fechamento: row.fechamento,
     intervalo: row.intervalo,
-    diasFuncionamento: JSON.parse(row.diasFuncionamento),
+    diasFuncionamento: typeof row.diasFuncionamento === 'string' ? JSON.parse(row.diasFuncionamento) : row.diasFuncionamento,
     localStorageAtivo: !!row.localStorageAtivo,
   };
 }
 
-router.get('/', (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM config WHERE id = 1').get();
+    const db = await getDb();
+    const row = await db.get('SELECT * FROM config WHERE id = 1');
     if (!row) return res.status(404).json({ error: 'Config não encontrada' });
     res.json(rowToConfig(row));
   } catch(e){ next(e); }
 });
 
-router.put('/', authMiddleware, (req, res, next) => {
+router.put('/', authMiddleware, async (req, res, next) => {
   try {
     const body = { ...req.body };
-    // permitir intervalo como string
     if (typeof body.intervalo === 'string') body.intervalo = Number(body.intervalo);
-    // localStorageAtivo pode vir como 0/1
     if (body.localStorageAtivo !== undefined && typeof body.localStorageAtivo !== 'boolean') {
       body.localStorageAtivo = !!body.localStorageAtivo;
     }
     const data = parseOr400(configSchema, body);
-    const db = getDb();
-    db.prepare('UPDATE config SET abertura=?, fechamento=?, intervalo=?, diasFuncionamento=?, localStorageAtivo=? WHERE id=1')
-      .run(data.abertura, data.fechamento, data.intervalo, JSON.stringify(data.diasFuncionamento), data.localStorageAtivo ? 1 : 0);
-    const row = db.prepare('SELECT * FROM config WHERE id=1').get();
+    const db = await getDb();
+    await db.run('UPDATE config SET abertura=?, fechamento=?, intervalo=?, diasFuncionamento=?, localStorageAtivo=? WHERE id=1',
+      data.abertura, data.fechamento, data.intervalo, JSON.stringify(data.diasFuncionamento), data.localStorageAtivo ? 1 : 0);
+    const row = await db.get('SELECT * FROM config WHERE id=1');
     res.json(rowToConfig(row));
   } catch(e){ next(e); }
 });

@@ -4,9 +4,9 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/dashboard', authMiddleware, (req, res, next) => {
+router.get('/dashboard', authMiddleware, async (req, res, next) => {
   try {
-    const db = getDb();
+    const db = await getDb();
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     const isoHoje = hoje.toISOString().split('T')[0];
     const seteDiasAtras = new Date(hoje); seteDiasAtras.setDate(hoje.getDate() - 7);
@@ -15,15 +15,29 @@ router.get('/dashboard', authMiddleware, (req, res, next) => {
     const ano = hoje.getFullYear();
     const mesPrefix = `${ano}-${String(mes).padStart(2, '0')}`;
 
-    // Corrigido: semana usa BETWEEN para não contar datas futuras
-    const hojeCount = db.prepare("SELECT COUNT(*) as c FROM appointments WHERE data = ? AND status != 'cancelado'").get(isoHoje).c;
-    const semanaCount = db.prepare("SELECT COUNT(*) as c FROM appointments WHERE data BETWEEN ? AND ? AND status != 'cancelado'").get(iso7, isoHoje).c;
-    const mesCount = db.prepare("SELECT COUNT(*) as c FROM appointments WHERE substr(data,1,7) = ? AND status != 'cancelado'").get(mesPrefix).c;
-    const cancelados = db.prepare("SELECT COUNT(*) as c FROM appointments WHERE status = 'cancelado'").get().c;
-    const receita = db.prepare("SELECT COALESCE(SUM(servico_preco),0) as s FROM appointments WHERE status != 'cancelado'").get().s;
+    const hojeCountRes = await db.get("SELECT COUNT(*) as c FROM appointments WHERE data = ? AND status != 'cancelado'", isoHoje);
+    const hojeCount = hojeCountRes ? hojeCountRes.c : 0;
 
-    // por dia da semana (Seg-Sab) — agregado no SQL para evitar carregar tudo em memoria
-    const grouped = db.prepare("SELECT strftime('%w', data) as w, COUNT(*) as c FROM appointments WHERE status != 'cancelado' GROUP BY w").all();
+    const semanaCountRes = await db.get("SELECT COUNT(*) as c FROM appointments WHERE data BETWEEN ? AND ? AND status != 'cancelado'", iso7, isoHoje);
+    const semanaCount = semanaCountRes ? semanaCountRes.c : 0;
+
+    const mesCountRes = await db.get("SELECT COUNT(*) as c FROM appointments WHERE substr(data,1,7) = ? AND status != 'cancelado'", mesPrefix);
+    const mesCount = mesCountRes ? mesCountRes.c : 0;
+
+    const canceladosRes = await db.get("SELECT COUNT(*) as c FROM appointments WHERE status = 'cancelado'");
+    const cancelados = canceladosRes ? canceladosRes.c : 0;
+
+    const receitaRes = await db.get("SELECT COALESCE(SUM(servico_preco),0) as s FROM appointments WHERE status != 'cancelado'");
+    const receita = receitaRes ? receitaRes.s : 0;
+
+    // por dia da semana (Seg-Sab) - compatível SQLite/PG
+    let grouped;
+    if (db.isPg) {
+      grouped = await db.all("SELECT EXTRACT(DOW FROM CAST(data AS DATE)) as w, COUNT(*) as c FROM appointments WHERE status != 'cancelado' GROUP BY w");
+    } else {
+      grouped = await db.all("SELECT strftime('%w', data) as w, COUNT(*) as c FROM appointments WHERE status != 'cancelado' GROUP BY w");
+    }
+
     const map = Object.fromEntries(grouped.map(r => [Number(r.w), r.c]));
     const porDiaSemana = [1, 2, 3, 4, 5, 6].map(dia => map[dia] || 0);
 

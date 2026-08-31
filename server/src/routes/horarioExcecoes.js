@@ -19,10 +19,10 @@ function rowToApi(row) {
   };
 }
 
-// GET /api/horario-excecoes?de=YYYY-MM-DD&ate=YYYY-MM-DD — público (usado pelo calendário)
-router.get('/', (req, res, next) => {
+// GET /api/horario-excecoes?de=YYYY-MM-DD&ate=YYYY-MM-DD - público (usado pelo calendário)
+router.get('/', async (req, res, next) => {
   try {
-    const db = getDb();
+    const db = await getDb();
     const { de, ate } = req.query;
     let sql = 'SELECT * FROM horario_excecoes';
     const params = [];
@@ -31,43 +31,43 @@ router.get('/', (req, res, next) => {
     if (ate) { conds.push('data <= ?'); params.push(ate); }
     if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
     sql += ' ORDER BY data ASC';
-    const rows = db.prepare(sql).all(...params);
+    const rows = await db.all(sql, ...params);
     res.json(rows.map(rowToApi));
   } catch (e) { next(e); }
 });
 
-router.get('/:id', (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM horario_excecoes WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const row = await db.get('SELECT * FROM horario_excecoes WHERE id = ?', req.params.id);
     if (!row) return res.status(404).json({ error: 'Exceção não encontrada' });
     res.json(rowToApi(row));
   } catch (e) { next(e); }
 });
 
 // POST protegido
-router.post('/', authMiddleware, (req, res, next) => {
+router.post('/', authMiddleware, async (req, res, next) => {
   try {
     const body = { ...req.body };
     if (body.fechado !== undefined && typeof body.fechado !== 'boolean') body.fechado = !!body.fechado;
     const data = parseOr400(excecaoSchema, body);
-    const db = getDb();
-    const exists = db.prepare('SELECT id FROM horario_excecoes WHERE data = ?').get(data.data);
+    const db = await getDb();
+    const exists = await db.get('SELECT id FROM horario_excecoes WHERE data = ?', data.data);
     if (exists) return res.status(409).json({ error: 'Já existe uma exceção para esta data. Use PUT para alterar.' });
     const id = 'HX' + Date.now() + Math.random().toString(36).slice(2, 4).toUpperCase();
     const now = new Date().toISOString();
-    db.prepare(`INSERT INTO horario_excecoes (id, data, fechado, abertura, fechamento, motivo, criadoEm, atualizadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, data.data, data.fechado ? 1 : 0, data.fechado ? null : data.abertura, data.fechado ? null : data.fechamento, data.motivo || '', now, null);
-    const row = db.prepare('SELECT * FROM horario_excecoes WHERE id = ?').get(id);
+    await db.run(`INSERT INTO horario_excecoes (id, data, fechado, abertura, fechamento, motivo, criadoEm, atualizadoEm) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, data.data, data.fechado ? 1 : 0, data.fechado ? null : data.abertura, data.fechado ? null : data.fechamento, data.motivo || '', now, null);
+    const row = await db.get('SELECT * FROM horario_excecoes WHERE id = ?', id);
     res.status(201).json(rowToApi(row));
   } catch (e) { next(e); }
 });
 
-// PUT protegido — identifica por id (path) ou data (body)
-router.put('/:id', authMiddleware, (req, res, next) => {
+// PUT protegido - identifica por id (path) ou data (body)
+router.put('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM horario_excecoes WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM horario_excecoes WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Exceção não encontrada' });
     const body = { ...req.body };
     if (body.fechado !== undefined && typeof body.fechado !== 'boolean') body.fechado = !!body.fechado;
@@ -85,19 +85,19 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     }
     const motivo = patch.motivo !== undefined ? patch.motivo : existing.motivo;
     const now = new Date().toISOString();
-    db.prepare('UPDATE horario_excecoes SET fechado = ?, abertura = ?, fechamento = ?, motivo = ?, atualizadoEm = ? WHERE id = ?')
-      .run(fechado ? 1 : 0, fechado ? null : abertura, fechado ? null : fechamento, motivo || '', now, existing.id);
-    const row = db.prepare('SELECT * FROM horario_excecoes WHERE id = ?').get(existing.id);
+    await db.run('UPDATE horario_excecoes SET fechado = ?, abertura = ?, fechamento = ?, motivo = ?, atualizadoEm = ? WHERE id = ?',
+      fechado ? 1 : 0, fechado ? null : abertura, fechado ? null : fechamento, motivo || '', now, existing.id);
+    const row = await db.get('SELECT * FROM horario_excecoes WHERE id = ?', existing.id);
     res.json(rowToApi(row));
   } catch (e) { next(e); }
 });
 
-router.delete('/:id', authMiddleware, (req, res, next) => {
+router.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM horario_excecoes WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM horario_excecoes WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Exceção não encontrada' });
-    db.prepare('DELETE FROM horario_excecoes WHERE id = ?').run(req.params.id);
+    await db.run('DELETE FROM horario_excecoes WHERE id = ?', req.params.id);
     res.json({ ok: true });
   } catch (e) { next(e); }
 });

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS barbers (
 CREATE TABLE IF NOT EXISTS services (
   id TEXT PRIMARY KEY,
   nome TEXT NOT NULL UNIQUE,
-  preco REAL NOT NULL,
+  preco DOUBLE PRECISION NOT NULL,
   duracao INTEGER NOT NULL
 );
 
@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS config (
   abertura TEXT NOT NULL,
   fechamento TEXT NOT NULL,
   intervalo INTEGER NOT NULL,
-  diasFuncionamento TEXT NOT NULL, -- JSON array ex: "[1,2,3,4,5,6]"
-  localStorageAtivo INTEGER NOT NULL DEFAULT 1
+  "diasFuncionamento" TEXT NOT NULL,
+  "localStorageAtivo" INTEGER NOT NULL DEFAULT 1
 );
 
 -- Agendamentos
@@ -31,14 +31,14 @@ CREATE TABLE IF NOT EXISTS appointments (
   cliente_email TEXT,
   servico_nome TEXT NOT NULL,
   servico_duracao INTEGER,
-  servico_preco REAL,
+  servico_preco DOUBLE PRECISION,
   barbeiro TEXT,
-  data TEXT NOT NULL,       -- YYYY-MM-DD
-  horario TEXT NOT NULL,    -- HH:mm
-  status TEXT NOT NULL DEFAULT 'agendado' CHECK (status IN ('agendado','confirmado','realizado','cancelado')),
+  data TEXT NOT NULL,
+  horario TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'agendado',
   observacoes TEXT,
-  criadoEm TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  atualizadoEm TEXT,
+  "criadoEm" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "atualizadoEm" TEXT,
   UNIQUE(data, horario)
 );
 
@@ -47,27 +47,27 @@ CREATE INDEX IF NOT EXISTS idx_appt_telefone ON appointments(cliente_telefone);
 CREATE INDEX IF NOT EXISTS idx_appt_status ON appointments(status);
 CREATE INDEX IF NOT EXISTS idx_appt_barbeiro ON appointments(barbeiro);
 
--- Logs de auditoria (fase 2 — instrumentação em appointments.js)
+-- Logs de auditoria
 CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
   appointment_id TEXT,
-  acao TEXT NOT NULL CHECK (acao IN ('criado','confirmado','realizado','cancelado','editado','excluido')),
-  detalhe TEXT, -- JSON: { motivo, antes, depois }
-  autor TEXT,   -- 'cliente' | 'admin' | 'sistema'
-  criadoEm TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  acao TEXT NOT NULL,
+  detalhe TEXT,
+  autor TEXT,
+  "criadoEm" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_audit_appt ON audit_logs(appointment_id);
 CREATE INDEX IF NOT EXISTS idx_audit_acao ON audit_logs(acao);
 
--- Exceções de horário por data (feriados, fechar mais cedo, etc.)
+-- Exceções de horário por data
 CREATE TABLE IF NOT EXISTS horario_excecoes (
   id TEXT PRIMARY KEY,
-  data TEXT NOT NULL UNIQUE, -- YYYY-MM-DD
-  fechado INTEGER NOT NULL DEFAULT 0, -- 1 = fechado o dia todo
-  abertura TEXT,   -- HH:mm, nullable se fechado=1
-  fechamento TEXT, -- HH:mm, nullable se fechado=1
+  data TEXT NOT NULL UNIQUE,
+  fechado INTEGER NOT NULL DEFAULT 0,
+  abertura TEXT,
+  fechamento TEXT,
   motivo TEXT,
-  criadoEm TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  atualizadoEm TEXT
+  "criadoEm" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "atualizadoEm" TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_excecoes_data ON horario_excecoes(data);

@@ -46,27 +46,27 @@ function rowToApi(row) {
   };
 }
 
-function getConfig(db) {
-  const row = db.prepare('SELECT * FROM config WHERE id = 1').get();
+async function getConfig(db) {
+  const row = await db.get('SELECT * FROM config WHERE id = 1');
   if (!row) return { abertura:'08:00', fechamento:'20:00', intervalo:30, diasFuncionamento:[1,2,3,4,5,6] };
   return {
     abertura: row.abertura,
     fechamento: row.fechamento,
     intervalo: row.intervalo,
-    diasFuncionamento: JSON.parse(row.diasFuncionamento),
+    diasFuncionamento: typeof row.diasFuncionamento === 'string' ? JSON.parse(row.diasFuncionamento) : row.diasFuncionamento,
   };
 }
 
-function getExcecao(db, data) {
+async function getExcecao(db, data) {
   try {
-    const row = db.prepare('SELECT * FROM horario_excecoes WHERE data = ?').get(data);
+    const row = await db.get('SELECT * FROM horario_excecoes WHERE data = ?', data);
     if (!row) return null;
     return { fechado: !!row.fechado, abertura: row.abertura, fechamento: row.fechamento, motivo: row.motivo || '' };
   } catch (_) { return null; }
 }
 
-function resolveHorarioDia(db, data, cfg) {
-  const exc = getExcecao(db, data);
+async function resolveHorarioDia(db, data, cfg) {
+  const exc = await getExcecao(db, data);
   if (exc) {
     if (exc.fechado) return { fechado: true, motivo: exc.motivo || 'Fechado (exceção)' };
     return { fechado: false, abertura: exc.abertura, fechamento: exc.fechamento, intervalo: cfg.intervalo, excecao: true, motivo: exc.motivo || '' };
@@ -74,13 +74,12 @@ function resolveHorarioDia(db, data, cfg) {
   return { fechado: false, abertura: cfg.abertura, fechamento: cfg.fechamento, intervalo: cfg.intervalo };
 }
 
-function validarRegrasNegocio({ data, horario }, cfg, db) {
+async function validarRegrasNegocio({ data, horario }, cfg, db) {
   if (isDataPassada(data)) {
     const e = new Error('Não é possível agendar em data passada'); e.status=400; throw e;
   }
-  // checa exceção por data primeiro
   if (db) {
-    const exc = getExcecao(db, data);
+    const exc = await getExcecao(db, data);
     if (exc) {
       if (exc.fechado) { const e = new Error(exc.motivo ? `Fechado: ${exc.motivo}` : 'Barbearia fechada nesta data'); e.status=400; throw e; }
       if (!horarioDentroFuncionamento(horario, exc.abertura, exc.fechamento)) {
@@ -106,30 +105,29 @@ function validarRegrasNegocio({ data, horario }, cfg, db) {
 function timeToMin(s) { const [h, m] = s.split(':').map(Number); return h * 60 + m; }
 function minToTime(m) { const h = Math.floor(m / 60), mm = m % 60; return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`; }
 
-// Aliases solicitados no spec (mantêm compat com rotas antigas)
-// GET /api/appointments/phone/:telefone  — busca por telefone (alias de ?telefone=)
-router.get('/phone/:telefone', (req, res, next) => {
+// GET /api/appointments/phone/:telefone
+router.get('/phone/:telefone', async (req, res, next) => {
   try {
-    const db = getDb();
+    const db = await getDb();
     const digits = (req.params.telefone || '').replace(/\D/g, '');
     if (!digits) return res.status(400).json({ error: 'Telefone é obrigatório' });
-    const rows = db.prepare(
-      `SELECT * FROM appointments WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(cliente_telefone,'(',''),')',''),'-',''),' ',''),'+','') LIKE ? ORDER BY data ASC, horario ASC`
-    ).all(`%${digits}%`);
+    const rows = await db.all(
+      `SELECT * FROM appointments WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(cliente_telefone,'(',''),')',''),'-',''),' ',''),'+','') LIKE ? ORDER BY data ASC, horario ASC`,
+      `%${digits}%`
+    );
     res.json(rows.map(rowToApi));
   } catch (e) { next(e); }
 });
 
-// GET /api/appointments/availability?data=YYYY-MM-DD — alias de /api/availability
-router.get('/availability', (req, res, next) => {
+// GET /api/appointments/availability?data=YYYY-MM-DD
+router.get('/availability', async (req, res, next) => {
   try {
     const { data } = req.query;
     if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ error: 'query param data (YYYY-MM-DD) é obrigatório' });
-    const db = getDb();
-    const cfg = getConfig(db);
-    const resolvido = resolveHorarioDia(db, data, cfg);
+    const db = await getDb();
+    const cfg = await getConfig(db);
+    const resolvido = await resolveHorarioDia(db, data, cfg);
     if (resolvido.fechado) return res.json({ data, fechado: true, intervalos: [], motivo: resolvido.motivo || null });
-    // se não há exceção mas dia da semana fechado, também fechado
     if (!resolvido.excecao) {
       const diaSemana = new Date(data + 'T00:00:00').getDay();
       if (!cfg.diasFuncionamento.includes(diaSemana)) return res.json({ data, fechado: true, intervalos: [] });
@@ -138,17 +136,18 @@ router.get('/availability', (req, res, next) => {
     const end = timeToMin(resolvido.fechamento);
     const slots = [];
     for (let m = start; m < end; m += resolvido.intervalo) slots.push(minToTime(m));
-    const ocupados = db.prepare("SELECT horario FROM appointments WHERE data = ? AND status != 'cancelado'").all(data).map(r => r.horario);
+    const ocupadosRows = await db.all("SELECT horario FROM appointments WHERE data = ? AND status != 'cancelado'", data);
+    const ocupados = ocupadosRows.map(r => r.horario);
     const ocupadosSet = new Set(ocupados);
     const intervalos = slots.map(horario => ({ horario, disponivel: !ocupadosSet.has(horario) }));
     res.json({ data, fechado: false, intervalos, abertura: resolvido.abertura, fechamento: resolvido.fechamento, intervalo: resolvido.intervalo, excecao: !!resolvido.excecao, motivo: resolvido.motivo || null });
   } catch (e) { next(e); }
 });
 
-// GET /api/appointments?data=&barbeiro=&status=&telefone=&page=&limit=&sort=
-router.get('/', (req, res, next) => {
+// GET /api/appointments
+router.get('/', async (req, res, next) => {
   try {
-    const db = getDb();
+    const db = await getDb();
     const { data, barbeiro, status, telefone, page, limit, sort } = req.query;
     let sql = 'SELECT * FROM appointments WHERE 1=1';
     const params = [];
@@ -157,11 +156,9 @@ router.get('/', (req, res, next) => {
     if (status && status !== 'todos') { sql += ' AND LOWER(status) = LOWER(?)'; params.push(status); }
     if (telefone) {
       const digits = telefone.replace(/\D/g,'');
-      // busca por dígitos normalizados: compara LIKE
       sql += " AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(cliente_telefone,'(',''),')',''),'-',''),' ',''),'+','') LIKE ?";
       params.push(`%${digits}%`);
     }
-    // sort: data:asc ou data:desc etc — simplificado
     let orderBy = ' ORDER BY data ASC, horario ASC';
     if (sort) {
       const [field, dir] = sort.split(':');
@@ -173,44 +170,42 @@ router.get('/', (req, res, next) => {
     }
     sql += orderBy;
 
-    // paginação opcional
     if (limit) {
       const lim = Math.min(parseInt(limit)||50, 100);
       const p = Math.max(parseInt(page)||1, 1);
       sql += ' LIMIT ? OFFSET ?'; params.push(lim, (p-1)*lim);
     }
 
-    const rows = db.prepare(sql).all(...params);
+    const rows = await db.all(sql, ...params);
     res.json(rows.map(rowToApi));
   } catch (e) { next(e); }
 });
 
-// GET /api/appointments/:id/logs — histórico de auditoria (protegido, antes de /:id)
-router.get('/:id/logs', authMiddleware, (req, res, next) => {
+// GET /api/appointments/:id/logs
+router.get('/:id/logs', authMiddleware, async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT id FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT id FROM appointments WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Agendamento não encontrado' });
-    const logs = db.prepare('SELECT id, appointment_id as appointmentId, acao, detalhe, autor, criadoEm FROM audit_logs WHERE appointment_id = ? ORDER BY criadoEm ASC').all(req.params.id);
+    const logs = await db.all('SELECT id, appointment_id as appointmentId, acao, detalhe, autor, criadoEm FROM audit_logs WHERE appointment_id = ? ORDER BY criadoEm ASC', req.params.id);
     const mapped = logs.map(r => ({ ...r, detalhe: r.detalhe ? JSON.parse(r.detalhe) : null }));
     res.json(mapped);
   } catch (e) { next(e); }
 });
 
-router.get('/:id', (req, res, next) => {
+router.get('/:id', async (req, res, next) => {
   try {
-    const db = getDb();
-    const row = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const row = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     if (!row) return res.status(404).json({ error: 'Agendamento não encontrado' });
     res.json(rowToApi(row));
   } catch(e){ next(e); }
 });
 
-// POST /api/appointments (público)
-router.post('/', (req, res, next) => {
+// POST /api/appointments
+router.post('/', async (req, res, next) => {
   try {
     const body = req.body;
-    // aceitar tanto shape aninhado quanto flat legado
     let payload = body;
     if (body.nome && !body.cliente) {
       payload = {
@@ -229,45 +224,43 @@ router.post('/', (req, res, next) => {
     if (!validarTelefone(data.cliente.telefone)) {
       const e=new Error('Telefone inválido (mín. 10 dígitos)'); e.status=400; throw e;
     }
-    const db = getDb();
-    const cfg = getConfig(db);
-    validarRegrasNegocio({ data: data.data, horario: data.horario }, cfg, db);
+    const db = await getDb();
+    const cfg = await getConfig(db);
+    await validarRegrasNegocio({ data: data.data, horario: data.horario }, cfg, db);
 
-    // Verifica conflito (status != cancelado)
-    const conflito = db.prepare("SELECT id FROM appointments WHERE data = ? AND horario = ? AND status != 'cancelado'").get(data.data, data.horario);
+    const conflito = await db.get("SELECT id FROM appointments WHERE data = ? AND horario = ? AND status != 'cancelado'", data.data, data.horario);
     if (conflito) return res.status(409).json({ error: 'Horário já ocupado para esta data' });
 
     const id = 'AG' + Date.now() + Math.random().toString(36).slice(2,5).toUpperCase();
     const now = new Date().toISOString();
-    db.prepare(`INSERT INTO appointments
+    await db.run(`INSERT INTO appointments
       (id, cliente_nome, cliente_telefone, cliente_email, servico_nome, servico_duracao, servico_preco, barbeiro, data, horario, status, observacoes, criadoEm, atualizadoEm)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(
-        id,
-        data.cliente.nome.trim(),
-        data.cliente.telefone.trim(),
-        data.cliente.email || '',
-        data.servico.nome,
-        data.servico.duracao || null,
-        data.servico.preco ?? null,
-        data.barbeiro || 'Sem preferência',
-        data.data,
-        data.horario,
-        data.status || 'agendado',
-        data.observacoes || '',
-        now, null
-      );
-    const row = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
-    audit(db, { appointment_id: id, acao: 'criado', detalhe: { cliente: data.cliente, servico: data.servico, barbeiro: data.barbeiro, data: data.data, horario: data.horario }, autor: 'cliente' });
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id,
+      data.cliente.nome.trim(),
+      data.cliente.telefone.trim(),
+      data.cliente.email || '',
+      data.servico.nome,
+      data.servico.duracao || null,
+      data.servico.preco ?? null,
+      data.barbeiro || 'Sem preferência',
+      data.data,
+      data.horario,
+      data.status || 'agendado',
+      data.observacoes || '',
+      now, null
+    );
+    const row = await db.get('SELECT * FROM appointments WHERE id = ?', id);
+    await audit(db, { appointment_id: id, acao: 'criado', detalhe: { cliente: data.cliente, servico: data.servico, barbeiro: data.barbeiro, data: data.data, horario: data.horario }, autor: 'cliente' });
     res.status(201).json(rowToApi(row));
   } catch(e){ next(e); }
 });
 
-// PUT /api/appointments/:id (protegido)
-router.put('/:id', authMiddleware, (req, res, next) => {
+// PUT /api/appointments/:id
+router.put('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Agendamento não encontrado' });
 
     let payload = req.body;
@@ -284,14 +277,13 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       Object.keys(payload).forEach(k=> payload[k]===undefined && delete payload[k]);
     }
     const data = parseOr400(appointmentUpdateSchema, payload);
-    const cfg = getConfig(db);
+    const cfg = await getConfig(db);
     const novaData = data.data || existing.data;
     const novoHorario = data.horario || existing.horario;
-    if (data.data || data.horario) validarRegrasNegocio({ data: novaData, horario: novoHorario }, cfg, db);
+    if (data.data || data.horario) await validarRegrasNegocio({ data: novaData, horario: novoHorario }, cfg, db);
 
-    // conflito se mudou data/horario
     if (data.data || data.horario) {
-      const conflito = db.prepare("SELECT id FROM appointments WHERE data = ? AND horario = ? AND id != ? AND status != 'cancelado'").get(novaData, novoHorario, req.params.id);
+      const conflito = await db.get("SELECT id FROM appointments WHERE data = ? AND horario = ? AND id != ? AND status != 'cancelado'", novaData, novoHorario, req.params.id);
       if (conflito) return res.status(409).json({ error: 'Horário já ocupado para esta data' });
     }
 
@@ -319,40 +311,40 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     params.push(req.params.id);
 
     const antes = { ...existing };
-    db.prepare(`UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`).run(...params);
-    const row = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
-    audit(db, { appointment_id: req.params.id, acao: 'editado', detalhe: { antes: rowToApi(antes), depois: rowToApi(row) }, autor: 'admin' });
+    await db.run(`UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`, ...params);
+    const row = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
+    await audit(db, { appointment_id: req.params.id, acao: 'editado', detalhe: { antes: rowToApi(antes), depois: rowToApi(row) }, autor: 'admin' });
     res.json(rowToApi(row));
   } catch(e){ next(e); }
 });
 
 // PATCH /api/appointments/:id/status
-router.patch('/:id/status', authMiddleware, (req, res, next) => {
+router.patch('/:id/status', authMiddleware, async (req, res, next) => {
   try {
     const { status, motivo } = req.body;
     const allowed = ['agendado','confirmado','realizado','cancelado'];
     if (!allowed.includes(status)) return res.status(400).json({ error: `status deve ser um de: ${allowed.join(', ')}` });
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Agendamento não encontrado' });
     const obs = motivo ? `${existing.observacoes ? existing.observacoes + ' | ' : ''}Motivo cancelamento: ${motivo}` : existing.observacoes;
     if (motivo && status === 'cancelado') {
-      db.prepare('UPDATE appointments SET status = ?, observacoes = ?, atualizadoEm = ? WHERE id = ?').run(status, obs, new Date().toISOString(), req.params.id);
+      await db.run('UPDATE appointments SET status = ?, observacoes = ?, atualizadoEm = ? WHERE id = ?', status, obs, new Date().toISOString(), req.params.id);
     } else {
-      db.prepare('UPDATE appointments SET status = ?, atualizadoEm = ? WHERE id = ?').run(status, new Date().toISOString(), req.params.id);
+      await db.run('UPDATE appointments SET status = ?, atualizadoEm = ? WHERE id = ?', status, new Date().toISOString(), req.params.id);
     }
     const acaoMap = { confirmado: 'confirmado', realizado: 'realizado', cancelado: 'cancelado', agendado: 'editado' };
-    audit(db, { appointment_id: req.params.id, acao: acaoMap[status] || 'editado', detalhe: { de: existing.status, para: status, motivo: motivo || null }, autor: 'admin' });
-    const row = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    await audit(db, { appointment_id: req.params.id, acao: acaoMap[status] || 'editado', detalhe: { de: existing.status, para: status, motivo: motivo || null }, autor: 'admin' });
+    const row = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     res.json(rowToApi(row));
   } catch(e){ next(e); }
 });
 
-// POST /api/appointments/:id/cancel (público, valida telefone; aceita motivo)
-router.post('/:id/cancel', (req, res, next) => {
+// POST /api/appointments/:id/cancel
+router.post('/:id/cancel', async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Agendamento não encontrado' });
     const telefoneReq = (req.body.telefone || req.query.telefone || '').replace(/\D/g,'');
     const telefoneDb = (existing.cliente_telefone||'').replace(/\D/g,'');
@@ -360,40 +352,40 @@ router.post('/:id/cancel', (req, res, next) => {
     const motivo = (req.body.motivo || '').trim();
     const obs = motivo ? `${existing.observacoes ? existing.observacoes + ' | ' : ''}Motivo cancelamento: ${motivo}` : existing.observacoes;
     if (motivo) {
-      db.prepare("UPDATE appointments SET status = 'cancelado', observacoes = ?, atualizadoEm = ? WHERE id = ?").run(obs, new Date().toISOString(), req.params.id);
+      await db.run("UPDATE appointments SET status = 'cancelado', observacoes = ?, atualizadoEm = ? WHERE id = ?", obs, new Date().toISOString(), req.params.id);
     } else {
-      db.prepare("UPDATE appointments SET status = 'cancelado', atualizadoEm = ? WHERE id = ?").run(new Date().toISOString(), req.params.id);
+      await db.run("UPDATE appointments SET status = 'cancelado', atualizadoEm = ? WHERE id = ?", new Date().toISOString(), req.params.id);
     }
-    audit(db, { appointment_id: req.params.id, acao: 'cancelado', detalhe: { motivo: motivo || null, telefone: telefoneReq ? 'validado' : 'sem validacao' }, autor: 'cliente' });
-    const row = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    await audit(db, { appointment_id: req.params.id, acao: 'cancelado', detalhe: { motivo: motivo || null, telefone: telefoneReq ? 'validado' : 'sem validacao' }, autor: 'cliente' });
+    const row = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     res.json(rowToApi(row));
   } catch(e){ next(e); }
 });
 
-// DELETE /api/appointments/:id (protegido — hard delete)
-router.delete('/:id', authMiddleware, (req, res, next) => {
+// DELETE /api/appointments/:id
+router.delete('/:id', authMiddleware, async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Agendamento não encontrado' });
-    audit(db, { appointment_id: req.params.id, acao: 'excluido', detalhe: { snapshot: rowToApi(existing) }, autor: 'admin' });
-    db.prepare('DELETE FROM appointments WHERE id = ?').run(req.params.id);
+    await audit(db, { appointment_id: req.params.id, acao: 'excluido', detalhe: { snapshot: rowToApi(existing) }, autor: 'admin' });
+    await db.run('DELETE FROM appointments WHERE id = ?', req.params.id);
     res.json({ ok: true });
   } catch(e){ next(e); }
 });
 
-// DELETE público alternativo com telefone (para compat com frontend sem auth)
-router.delete('/public/:id', (req, res, next) => {
+// DELETE público alternativo com telefone
+router.delete('/public/:id', async (req, res, next) => {
   try {
-    const db = getDb();
-    const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
+    const db = await getDb();
+    const existing = await db.get('SELECT * FROM appointments WHERE id = ?', req.params.id);
     if (!existing) return res.status(404).json({ error: 'Agendamento não encontrado' });
     const telefoneReq = (req.body.telefone || req.query.telefone || '').replace(/\D/g,'');
     const telefoneDb = (existing.cliente_telefone||'').replace(/\D/g,'');
     if (!telefoneReq) return res.status(400).json({ error: 'Telefone é obrigatório para cancelar' });
     if (telefoneReq !== telefoneDb) return res.status(403).json({ error: 'Telefone não confere' });
-    audit(db, { appointment_id: req.params.id, acao: 'excluido', detalhe: { snapshot: rowToApi(existing), via: 'public' }, autor: 'cliente' });
-    db.prepare('DELETE FROM appointments WHERE id = ?').run(req.params.id);
+    await audit(db, { appointment_id: req.params.id, acao: 'excluido', detalhe: { snapshot: rowToApi(existing), via: 'public' }, autor: 'cliente' });
+    await db.run('DELETE FROM appointments WHERE id = ?', req.params.id);
     res.json({ ok: true });
   } catch(e){ next(e); }
 });

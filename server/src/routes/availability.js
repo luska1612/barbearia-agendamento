@@ -6,35 +6,36 @@ const router = express.Router();
 function timeToMin(s) { const [h,m]=s.split(':').map(Number); return h*60+m; }
 function minToTime(m) { const h=Math.floor(m/60), mm=m%60; return `${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; }
 
-function getExcecao(db, data) {
+async function getExcecao(db, data) {
   try {
-    const row = db.prepare('SELECT * FROM horario_excecoes WHERE data = ?').get(data);
+    const row = await db.get('SELECT * FROM horario_excecoes WHERE data = ?', data);
     if (!row) return null;
     return { fechado: !!row.fechado, abertura: row.abertura, fechamento: row.fechamento, motivo: row.motivo || '' };
   } catch (_) { return null; }
 }
 
-router.get('/', (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
     const { data } = req.query;
     if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ error: 'query param data (YYYY-MM-DD) é obrigatório' });
-    const db = getDb();
-    const cfgRow = db.prepare('SELECT * FROM config WHERE id=1').get();
+    const db = await getDb();
+    const cfgRow = await db.get('SELECT * FROM config WHERE id=1');
     const cfg = cfgRow ? {
       abertura: cfgRow.abertura,
       fechamento: cfgRow.fechamento,
       intervalo: cfgRow.intervalo,
-      diasFuncionamento: JSON.parse(cfgRow.diasFuncionamento),
+      diasFuncionamento: typeof cfgRow.diasFuncionamento === 'string' ? JSON.parse(cfgRow.diasFuncionamento) : cfgRow.diasFuncionamento,
     } : { abertura:'08:00', fechamento:'20:00', intervalo:30, diasFuncionamento:[1,2,3,4,5,6] };
 
-    const exc = getExcecao(db, data);
+    const exc = await getExcecao(db, data);
     if (exc) {
       if (exc.fechado) return res.json({ data, fechado: true, intervalos: [], motivo: exc.motivo || null });
       const start = timeToMin(exc.abertura);
       const end = timeToMin(exc.fechamento);
       const slots = [];
       for (let m = start; m < end; m += cfg.intervalo) slots.push(minToTime(m));
-      const ocupados = db.prepare("SELECT horario FROM appointments WHERE data = ? AND status != 'cancelado'").all(data).map(r=>r.horario);
+      const ocupadosRows = await db.all("SELECT horario FROM appointments WHERE data = ? AND status != 'cancelado'", data);
+      const ocupados = ocupadosRows.map(r=>r.horario);
       const ocupadosSet = new Set(ocupados);
       const intervalos = slots.map(horario => ({ horario, disponivel: !ocupadosSet.has(horario) }));
       return res.json({ data, fechado: false, intervalos, abertura: exc.abertura, fechamento: exc.fechamento, intervalo: cfg.intervalo, excecao: true, motivo: exc.motivo || null });
@@ -49,7 +50,8 @@ router.get('/', (req, res, next) => {
     const slots = [];
     for (let m = start; m < end; m += cfg.intervalo) slots.push(minToTime(m));
 
-    const ocupados = db.prepare("SELECT horario FROM appointments WHERE data = ? AND status != 'cancelado'").all(data).map(r=>r.horario);
+    const ocupadosRows = await db.all("SELECT horario FROM appointments WHERE data = ? AND status != 'cancelado'", data);
+    const ocupados = ocupadosRows.map(r=>r.horario);
     const ocupadosSet = new Set(ocupados);
 
     const intervalos = slots.map(horario => ({ horario, disponivel: !ocupadosSet.has(horario) }));
