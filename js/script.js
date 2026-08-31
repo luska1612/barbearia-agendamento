@@ -146,6 +146,7 @@
   }
 
   function ehDomingo(data) { return data.getDay() === 0; }
+  function ehDiaFechado(data) { return !config.diasFuncionamento.includes(data.getDay()); }
   function ehDataPassada(data) { const c=new Date(data); c.setHours(0,0,0,0); return c < hoje; }
   function horarioOcupado(dataISO, horario) {
     return agendamentos.some(a => a.data === dataISO && a.horario === horario && a.status !== 'cancelado');
@@ -178,10 +179,10 @@
       const dataISO = paraISO(dataCelula);
       const celula = document.createElement('div');
       celula.className = 'dia-celula'; celula.textContent = dia;
-      const desabilitado = ehDataPassada(dataCelula) || ehDomingo(dataCelula);
+      const desabilitado = ehDataPassada(dataCelula) || ehDiaFechado(dataCelula);
       if (desabilitado) {
         celula.classList.add('desabilitado');
-        celula.title = ehDomingo(dataCelula) ? 'Fechado aos domingos' : 'Data já passou';
+        celula.title = ehDiaFechado(dataCelula) ? 'Fechado neste dia' : 'Data já passou';
       } else {
         celula.addEventListener('click', () => selecionarData(dataISO, celula));
       }
@@ -290,7 +291,7 @@
     if (!valido) { if(elAreaAlerta) elAreaAlerta.innerHTML='<div class="alerta alerta-erro">⚠️ Verifique os campos destacados em vermelho antes de continuar.</div>'; return; }
     const dataEscolhida = new Date(estado.dataSelecionadaISO + 'T00:00:00');
     if (ehDataPassada(dataEscolhida)) { if(elAreaAlerta) elAreaAlerta.innerHTML='<div class="alerta alerta-erro">❌ Não é possível agendar em uma data que já passou.</div>'; return; }
-    if (ehDomingo(dataEscolhida)) { if(elAreaAlerta) elAreaAlerta.innerHTML='<div class="alerta alerta-erro">❌ Estamos fechados aos domingos. Escolha outro dia.</div>'; return; }
+    if (ehDiaFechado(dataEscolhida)) { if(elAreaAlerta) elAreaAlerta.innerHTML='<div class="alerta alerta-erro">❌ Estamos fechados neste dia. Escolha outro dia.</div>'; return; }
 
     const [servicoNome, servicoValor] = servicoSelecionado.split('|');
     // Tenta criar via API

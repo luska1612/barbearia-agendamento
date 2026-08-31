@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin | [NOME DA BARBEARIA]</title>
+    <title>Admin | Mh cortes</title>
+    <link rel="icon" type="image/png" href="img/logo.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap"
@@ -113,6 +114,13 @@
                                     <span class="stat-value" id="stat-mes">0</span>
                                 </div>
                             </div>
+                            <div class="stat-card">
+                                <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
+                                <div class="stat-data">
+                                    <span class="stat-label">Cancelados</span>
+                                    <span class="stat-value" id="stat-cancelados">0</span>
+                                </div>
+                            </div>
                             <div class="stat-card destaque">
                                 <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
                                 <div class="stat-data">
@@ -139,6 +147,7 @@
                     <section id="agendamentos" class="admin-section">
                         <div class="action-bar">
                             <div class="filtros-grupo">
+                                <input type="text" id="filter-search" placeholder="Buscar nome ou telefone">
                                 <input type="date" id="filter-date">
                                 <select id="filter-barber">
                                     <option value="todos">Todos os Barbeiros</option>
@@ -272,6 +281,42 @@
                         <div class="config-actions">
                             <button class="btn btn-primario" id="btn-salvar-config">Salvar Configurações</button>
                         </div>
+                        <div class="config-card" style="margin-top:25px;">
+                            <h3><i class="fas fa-calendar-times"></i> Exceções por Data — fechar ou mudar horário</h3>
+                            <p style="font-size:0.85rem; opacity:0.7; margin-bottom:16px;">Exceções sobrepõem o horário padrão. Use para feriados (fechado) ou dias com fechamento mais cedo.</p>
+                            <form id="form-excecao" style="display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:18px;">
+                                <input type="hidden" id="excecao-id">
+                                <div class="campo" style="min-width:160px;">
+                                    <label>Data</label>
+                                    <input type="date" id="excecao-data" required>
+                                </div>
+                                <div class="campo" style="min-width:140px;">
+                                    <label>Abertura</label>
+                                    <input type="time" id="excecao-abertura" value="08:00">
+                                </div>
+                                <div class="campo" style="min-width:140px;">
+                                    <label>Fechamento</label>
+                                    <input type="time" id="excecao-fechamento" value="18:00">
+                                </div>
+                                <div class="campo" style="min-width:160px; flex:1;">
+                                    <label>Motivo (opcional)</label>
+                                    <input type="text" id="excecao-motivo" placeholder="Ex: feriado, evento">
+                                </div>
+                                <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; color:var(--off-white); cursor:pointer; padding-bottom:10px;">
+                                    <input type="checkbox" id="excecao-fechado"> Fechado o dia todo
+                                </label>
+                                <div style="display:flex; gap:8px; padding-bottom:10px;">
+                                    <button type="submit" class="btn btn-primario" id="btn-salvar-excecao">Salvar exceção</button>
+                                    <button type="button" class="btn btn-fantasma" id="btn-cancelar-excecao" style="display:none;">Cancelar</button>
+                                </div>
+                            </form>
+                            <div class="table-container">
+                                <table class="admin-table">
+                                    <thead><tr><th>Data</th><th>Horário</th><th>Motivo</th><th>Ações</th></tr></thead>
+                                    <tbody id="table-excecoes"><tr><td colspan="4" style="text-align:center; padding:20px; opacity:0.6;">Carregando...</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
                     </section>
 
                 </div>
@@ -348,6 +393,44 @@
                 </div>
                 <button type="submit" class="btn btn-primario btn-bloco">Atualizar Agendamento</button>
             </form>
+            <div id="agendamento-historico" style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.12); padding-top:16px; display:none;">
+                <h4 style="font-size:0.95rem; margin-bottom:10px;"><i class="fas fa-history"></i> Histórico</h4>
+                <div id="agendamento-historico-lista" style="max-height:220px; overflow:auto; font-size:0.85rem; opacity:0.9;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-cancelar" class="modal-fundo oculto">
+        <div class="modal-caixa">
+            <button class="modal-fechar">×</button>
+            <h3>Cancelar Agendamento</h3>
+            <p style="font-size:0.9rem; opacity:0.8; margin-bottom:12px;">Informe o motivo do cancelamento (opcional):</p>
+            <input type="hidden" id="cancel-agendamento-id">
+            <div class="campo">
+                <label>Motivo</label>
+                <input type="text" id="cancel-motivo" placeholder="Ex: cliente solicitou, imprevisto...">
+            </div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+                <button class="btn btn-fantasma" id="btn-cancelar-fechar" type="button" style="flex:1;">Voltar</button>
+                <button class="btn btn-primario" id="btn-cancelar-confirmar" type="button" style="flex:1;">Confirmar Cancelamento</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-reassign-barbeiro" class="modal-fundo oculto">
+        <div class="modal-caixa">
+            <button class="modal-fechar">×</button>
+            <h3>Trocar Barbeiro</h3>
+            <p style="font-size:0.9rem; opacity:0.8; margin-bottom:12px;">Selecione o novo barbeiro para este atendimento:</p>
+            <input type="hidden" id="reassign-agendamento-id">
+            <div class="campo">
+                <label>Barbeiro</label>
+                <select id="reassign-barbeiro" required></select>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:16px;">
+                <button class="btn btn-fantasma" id="btn-reassign-fechar" type="button" style="flex:1;">Voltar</button>
+                <button class="btn btn-primario" id="btn-reassign-confirmar" type="button" style="flex:1;">Salvar</button>
+            </div>
         </div>
     </div>
 

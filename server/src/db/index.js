@@ -6,7 +6,7 @@ let db = null;
 let raw = null;
 
 function getDbPath() {
-  return process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'barbearia.db');
+  return process.env.DATABASE_URL || process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'barbearia.db');
 }
 
 function getDb() {

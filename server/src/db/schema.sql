@@ -46,3 +46,28 @@ CREATE INDEX IF NOT EXISTS idx_appt_data ON appointments(data);
 CREATE INDEX IF NOT EXISTS idx_appt_telefone ON appointments(cliente_telefone);
 CREATE INDEX IF NOT EXISTS idx_appt_status ON appointments(status);
 CREATE INDEX IF NOT EXISTS idx_appt_barbeiro ON appointments(barbeiro);
+
+-- Logs de auditoria (fase 2 — instrumentação em appointments.js)
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id TEXT PRIMARY KEY,
+  appointment_id TEXT,
+  acao TEXT NOT NULL CHECK (acao IN ('criado','confirmado','realizado','cancelado','editado','excluido')),
+  detalhe TEXT, -- JSON: { motivo, antes, depois }
+  autor TEXT,   -- 'cliente' | 'admin' | 'sistema'
+  criadoEm TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_audit_appt ON audit_logs(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_audit_acao ON audit_logs(acao);
+
+-- Exceções de horário por data (feriados, fechar mais cedo, etc.)
+CREATE TABLE IF NOT EXISTS horario_excecoes (
+  id TEXT PRIMARY KEY,
+  data TEXT NOT NULL UNIQUE, -- YYYY-MM-DD
+  fechado INTEGER NOT NULL DEFAULT 0, -- 1 = fechado o dia todo
+  abertura TEXT,   -- HH:mm, nullable se fechado=1
+  fechamento TEXT, -- HH:mm, nullable se fechado=1
+  motivo TEXT,
+  criadoEm TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  atualizadoEm TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_excecoes_data ON horario_excecoes(data);

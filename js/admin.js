@@ -45,6 +45,7 @@
         servicos: [],
         barbeiros: [],
         config: { ...DEFAULT_CONFIG },
+        excecoes: [],
         currentSection: 'dashboard'
     };
 
@@ -104,11 +105,12 @@
     async function syncData() {
         if (USE_API) {
             try {
-                const [agendamentos, servicos, barbeiros, config] = await Promise.all([
+                const [agendamentos, servicos, barbeiros, config, excecoes] = await Promise.all([
                     API.listAppointments().catch(() => null),
                     API.listServices().catch(() => null),
                     API.listBarbers().catch(() => null),
                     API.getConfig().catch(() => null),
+                    (API.listExcecoes ? API.listExcecoes().catch(() => null) : Promise.resolve(null)),
                 ]);
                 if (Array.isArray(agendamentos)) state.agendamentos = agendamentos;
                 else state.agendamentos = utils.load(STORAGE_KEYS.AGENDAMENTOS, []);
@@ -118,6 +120,7 @@
                 else state.barbeiros = utils.load(STORAGE_KEYS.BARBEIROS, DEFAULT_BARBEIROS);
                 if (config && config.abertura) state.config = { ...DEFAULT_CONFIG, ...config, diasFuncionamento: config.diasFuncionamento || DEFAULT_CONFIG.diasFuncionamento };
                 else state.config = utils.load(STORAGE_KEYS.CONFIG, DEFAULT_CONFIG);
+                if (Array.isArray(excecoes)) state.excecoes = excecoes; else state.excecoes = [];
 
                 // cache local para modo offline
                 utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
@@ -186,6 +189,8 @@
                 document.getElementById('stat-hoje').textContent = dash.hoje ?? 0;
                 document.getElementById('stat-semana').textContent = dash.semana ?? 0;
                 document.getElementById('stat-mes').textContent = dash.mes ?? 0;
+                const elCancel = document.getElementById('stat-cancelados');
+                if (elCancel) elCancel.textContent = dash.cancelados ?? 0;
                 document.getElementById('stat-receita').textContent = utils.formatCurrency(dash.receita ?? 0);
                 const chart = document.getElementById('agenda-chart');
                 chart.innerHTML = '';
@@ -240,6 +245,7 @@
 
     // --- AGENDAMENTOS ---
     function renderAppointments() {
+        const searchFilter = (document.getElementById('filter-search')?.value || '').trim().toLowerCase();
         const dateFilter = document.getElementById('filter-date')?.value || '';
         const barberFilter = document.getElementById('filter-barber')?.value || 'todos';
         const statusFilter = document.getElementById('filter-status')?.value || 'todos';
@@ -247,6 +253,15 @@
         if (!tableBody) return;
         tableBody.innerHTML = '';
         let filtered = [...state.agendamentos];
+        if (searchFilter) {
+            filtered = filtered.filter(a => {
+                const nome = (a.cliente?.nome || a.nome || '').toLowerCase();
+                const tel = (a.cliente?.telefone || a.telefone || '').toLowerCase();
+                const telDigits = tel.replace(/\D/g, '');
+                const qDigits = searchFilter.replace(/\D/g, '');
+                return nome.includes(searchFilter) || tel.includes(searchFilter) || (qDigits && telDigits.includes(qDigits));
+            });
+        }
         if (dateFilter) filtered = filtered.filter(a => a.data === dateFilter);
         if (barberFilter !== 'todos') filtered = filtered.filter(a => a.barbeiro === barberFilter);
         if (statusFilter !== 'todos') {
@@ -273,10 +288,13 @@
                 <td>${utils.escaparHTML(servicoNome)}</td>
                 <td>${utils.escaparHTML(a.barbeiro || '')}</td>
                 <td><span class="status-badge ${statusClass}">${utils.escaparHTML(statusLabel)}</span></td>
-                <td>
-                    <button class="btn-action btn-edit" onclick="adminApp.editAppointment('${a.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-complete" onclick="adminApp.updateStatus('${a.id}', 'realizado')"><i class="fas fa-check"></i></button>
-                    <button class="btn-action btn-delete" onclick="adminApp.cancelAppointment('${a.id}')"><i class="fas fa-times"></i></button>
+                <td style="display:flex; gap:4px; flex-wrap:wrap;">
+                    <button class="btn-action btn-edit" title="Editar" onclick="adminApp.editAppointment('${a.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn-action" title="Trocar barbeiro" style="background:#1565c0; color:#fff;" onclick="adminApp.reassignBarber('${a.id}')"><i class="fas fa-user-edit"></i></button>
+                    <button class="btn-action btn-complete" title="Confirmar" onclick="adminApp.confirmAppointment('${a.id}')"><i class="fas fa-check-double"></i></button>
+                    <button class="btn-action" title="Concluir" style="background:#2e7d32; color:#fff;" onclick="adminApp.updateStatus('${a.id}', 'realizado')"><i class="fas fa-check"></i></button>
+                    <button class="btn-action btn-delete" title="Cancelar" onclick="adminApp.cancelAppointment('${a.id}')"><i class="fas fa-times"></i></button>
+                    <button class="btn-action btn-delete" title="Excluir" onclick="adminApp.deleteAppointment('${a.id}')"><i class="fas fa-trash"></i></button>
                 </td>
             `;
             tableBody.appendChild(row);
@@ -322,6 +340,23 @@
         });
     }
 
+    function renderExcecoes() {
+        const tbody = document.getElementById('table-excecoes');
+        if (!tbody) return;
+        if (!state.excecoes.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; opacity:0.6;">Nenhuma exceção cadastrada.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = '';
+        state.excecoes.slice().sort((a,b)=>a.data.localeCompare(b.data)).forEach(ex => {
+            const tr = document.createElement('tr');
+            const horario = ex.fechado ? '<span style="color:var(--vermelho-indisp)">Fechado</span>' : `${utils.escaparHTML(ex.abertura||'')} – ${utils.escaparHTML(ex.fechamento||'')}`;
+            const motivo = utils.escaparHTML(ex.motivo||'');
+            tr.innerHTML = `<td>${utils.formatDateBR(ex.data)}</td><td>${horario}</td><td>${motivo}</td><td style="display:flex; gap:6px;"><button class="btn-action btn-edit" onclick="adminApp.editExcecao('${ex.id}')"><i class="fas fa-edit"></i></button><button class="btn-action btn-delete" onclick="adminApp.deleteExcecao('${ex.id}')"><i class="fas fa-trash"></i></button></td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
     // --- CONFIGURAÇÕES ---
     function renderSettings() {
         const ab = document.getElementById('config-abertura');
@@ -335,30 +370,51 @@
         document.querySelectorAll('.dia-check').forEach(chk => {
             chk.checked = state.config.diasFuncionamento.includes(parseInt(chk.value));
         });
+        renderExcecoes();
     }
 
     // --- AÇÕES DE DADOS ---
     const adminApp = {
-        async cancelAppointment(id) {
-            if (!confirm('Deseja realmente cancelar este agendamento?')) return;
+        // abre modal com motivo — ponytail: motivo só persiste se API online; sem API salva no observacoes local
+        cancelAppointment(id) {
+            document.getElementById('cancel-agendamento-id').value = id;
+            const inp = document.getElementById('cancel-motivo'); if (inp) inp.value = '';
+            document.getElementById('modal-cancelar')?.classList.remove('oculto');
+        },
+        async confirmCancel() {
+            const id = document.getElementById('cancel-agendamento-id').value;
+            const motivo = document.getElementById('cancel-motivo')?.value.trim() || '';
             if (USE_API) {
                 try {
-                    await API.patchStatus(id, 'cancelado');
+                    await API.patchStatus(id, 'cancelado', motivo || undefined);
                     utils.showToast('Agendamento cancelado com sucesso!');
-                    await syncData();
-                    renderAppointments();
-                    await renderDashboard();
-                    return;
+                    document.getElementById('modal-cancelar')?.classList.add('oculto');
+                    await syncData(); renderAppointments(); await renderDashboard(); return;
                 } catch (e) {
                     if (handle401(e)) return;
-                    utils.showToast(e.message || 'Falha ao cancelar', 'error');
-                    return;
+                    utils.showToast(e.data?.error || e.message || 'Falha ao cancelar', 'error'); return;
                 }
             }
-            state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, status: 'cancelado' } : a);
+            state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, status: 'cancelado', observacoes: motivo ? ((a.observacoes ? a.observacoes + ' | ' : '') + 'Motivo: ' + motivo) : a.observacoes } : a);
             utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
             utils.showToast('Agendamento cancelado com sucesso!');
+            document.getElementById('modal-cancelar')?.classList.add('oculto');
             renderAppointments();
+        },
+        async confirmAppointment(id) {
+            if (USE_API) {
+                try { await API.patchStatus(id, 'confirmado'); utils.showToast('Agendamento confirmado!'); await syncData(); renderAppointments(); await renderDashboard(); return; } catch (e) { if (handle401(e)) return; utils.showToast(e.data?.error || e.message || 'Falha ao confirmar', 'error'); return; }
+            }
+            state.agendamentos = state.agendamentos.map(a => a.id === id ? { ...a, status: 'confirmado' } : a);
+            utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos); utils.showToast('Agendamento confirmado!'); renderAppointments();
+        },
+        async deleteAppointment(id) {
+            if (!confirm('Excluir permanentemente este agendamento?')) return;
+            if (USE_API) {
+                try { await API.deleteAppointment(id); utils.showToast('Agendamento excluído!'); await syncData(); renderAppointments(); await renderDashboard(); return; } catch (e) { if (handle401(e)) return; utils.showToast(e.data?.error || e.message || 'Falha ao excluir', 'error'); return; }
+            }
+            state.agendamentos = state.agendamentos.filter(a => a.id !== id);
+            utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos); utils.showToast('Agendamento excluído!'); renderAppointments();
         },
         async updateStatus(id, status) {
             const apiStatus = status.toLowerCase(); // realizado / cancelado etc.
@@ -381,7 +437,7 @@
             utils.showToast(`Status atualizado para ${status}!`);
             renderAppointments();
         },
-        editAppointment(id) {
+        async editAppointment(id) {
             const a = state.agendamentos.find(item => item.id === id);
             if (!a) return;
             const modal = document.getElementById('modal-agendamento');
@@ -394,6 +450,25 @@
             selBarber.innerHTML = state.barbeiros.map(b => `<option value="${utils.escaparHTML(b.nome)}" ${b.nome === a.barbeiro ? 'selected' : ''}>${utils.escaparHTML(b.nome)}</option>`).join('');
             selServ.innerHTML = state.servicos.map(s => `<option value="${utils.escaparHTML(s.nome)}" ${s.nome === servicoNomeAtual ? 'selected' : ''}>${utils.escaparHTML(s.nome)}</option>`).join('');
             modal.classList.remove('oculto');
+            // historico via API
+            const wrap = document.getElementById('agendamento-historico');
+            const lista = document.getElementById('agendamento-historico-lista');
+            if (wrap && lista) {
+                wrap.style.display = 'none'; lista.innerHTML = '<p style="opacity:0.6">Carregando...</p>';
+                if (USE_API) {
+                    try {
+                        const logs = await API.getAppointmentLogs(id);
+                        if (!logs.length) { lista.innerHTML = '<p style="opacity:0.6">Sem histórico.</p>'; }
+                        else {
+                            lista.innerHTML = logs.map(l => {
+                                const d = l.detalhe ? JSON.stringify(l.detalhe).slice(0,120) : '';
+                                return `<div style="padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.08)"><b>${utils.escaparHTML(l.acao)}</b> <small style="opacity:0.6">${utils.escaparHTML(l.autor||'')} · ${new Date(l.criadoEm).toLocaleString('pt-BR')}</small><div style="opacity:0.7; word-break:break-all; font-size:0.8em">${utils.escaparHTML(d)}</div></div>`;
+                            }).join('');
+                        }
+                        wrap.style.display = 'block';
+                    } catch (_) { wrap.style.display = 'none'; }
+                }
+            }
         },
         async saveAppointment() {
             const id = document.getElementById('edit-agendamento-id').value;
@@ -564,6 +639,62 @@
             renderBarbers();
             rebuildBarberFilter();
         },
+        reassignBarber(id) {
+            const a = state.agendamentos.find(item => item.id === id);
+            if (!a) return;
+            document.getElementById('reassign-agendamento-id').value = id;
+            const sel = document.getElementById('reassign-barbeiro');
+            const nomes = state.barbeiros.map(b => b.nome);
+            // garante que o atual apareça mesmo se barbeiro foi removido
+            if (a.barbeiro && !nomes.includes(a.barbeiro)) nomes.unshift(a.barbeiro);
+            if (!nomes.length) nomes.push('Sem preferência');
+            sel.innerHTML = nomes.map(nome => `<option value="${utils.escaparHTML(nome)}" ${nome === a.barbeiro ? 'selected' : ''}>${utils.escaparHTML(nome)}</option>`).join('');
+            document.getElementById('modal-reassign-barbeiro')?.classList.remove('oculto');
+        },
+        async confirmReassign() {
+            const id = document.getElementById('reassign-agendamento-id').value;
+            const barbeiro = document.getElementById('reassign-barbeiro').value.trim();
+            if (!barbeiro) { utils.showToast('Selecione um barbeiro', 'error'); return; }
+            const atual = state.agendamentos.find(x => x.id === id)?.barbeiro;
+            if (barbeiro === atual) { document.getElementById('modal-reassign-barbeiro')?.classList.add('oculto'); return; }
+            if (USE_API) {
+                try {
+                    await API.updateAppointment(id, { barbeiro });
+                    utils.showToast('Barbeiro alterado!');
+                    document.getElementById('modal-reassign-barbeiro')?.classList.add('oculto');
+                    await syncData(); renderAppointments(); await renderDashboard(); return;
+                } catch (e) {
+                    if (handle401(e)) return;
+                    utils.showToast(e.data?.error || e.message || 'Falha ao trocar barbeiro', 'error'); return;
+                }
+            }
+            state.agendamentos = state.agendamentos.map(x => x.id === id ? { ...x, barbeiro } : x);
+            utils.save(STORAGE_KEYS.AGENDAMENTOS, state.agendamentos);
+            utils.showToast('Barbeiro alterado!');
+            document.getElementById('modal-reassign-barbeiro')?.classList.add('oculto');
+            renderAppointments();
+        },
+        editExcecao(id) {
+            const ex = state.excecoes.find(x => x.id === id);
+            if (!ex) return;
+            document.getElementById('excecao-id').value = ex.id;
+            document.getElementById('excecao-data').value = ex.data;
+            document.getElementById('excecao-abertura').value = ex.abertura || '08:00';
+            document.getElementById('excecao-fechamento').value = ex.fechamento || '18:00';
+            document.getElementById('excecao-motivo').value = ex.motivo || '';
+            document.getElementById('excecao-fechado').checked = !!ex.fechado;
+            document.getElementById('excecao-abertura').disabled = !!ex.fechado;
+            document.getElementById('excecao-fechamento').disabled = !!ex.fechado;
+            document.getElementById('excecao-data').disabled = true;
+            document.getElementById('btn-cancelar-excecao').style.display = '';
+            document.getElementById('btn-salvar-excecao').textContent = 'Atualizar exceção';
+            document.getElementById('form-excecao')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        },
+        async deleteExcecao(id) {
+            if (!confirm('Remover esta exceção?')) return;
+            if (!USE_API || !API.deleteExcecao) { utils.showToast('API offline', 'error'); return; }
+            try { await API.deleteExcecao(id); utils.showToast('Exceção removida!'); await syncData(); renderExcecoes(); } catch (e) { if (handle401(e)) return; utils.showToast(e.data?.error || e.message || 'Falha ao remover', 'error'); }
+        },
         async refresh() {
             await syncData();
             rebuildBarberFilter();
@@ -587,10 +718,15 @@
 
     // --- EVENTOS GERAIS ---
     function setupEventListeners() {
+        document.getElementById('filter-search')?.addEventListener('input', renderAppointments);
         document.getElementById('filter-date')?.addEventListener('change', renderAppointments);
         document.getElementById('filter-barber')?.addEventListener('change', renderAppointments);
         document.getElementById('filter-status')?.addEventListener('change', renderAppointments);
         document.getElementById('sort-date')?.addEventListener('click', renderAppointments);
+        document.getElementById('btn-cancelar-confirmar')?.addEventListener('click', () => adminApp.confirmCancel());
+        document.getElementById('btn-cancelar-fechar')?.addEventListener('click', () => document.getElementById('modal-cancelar')?.classList.add('oculto'));
+        document.getElementById('btn-reassign-confirmar')?.addEventListener('click', () => adminApp.confirmReassign());
+        document.getElementById('btn-reassign-fechar')?.addEventListener('click', () => document.getElementById('modal-reassign-barbeiro')?.classList.add('oculto'));
 
         document.getElementById('btn-novo-servico')?.addEventListener('click', () => {
             document.getElementById('modal-servico-title').textContent = 'Novo Serviço';
@@ -621,6 +757,55 @@
         // fechar modal ao clicar no fundo
         document.querySelectorAll('.modal-fundo').forEach(m => {
             m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('oculto'); });
+        });
+
+        // Excecoes por data
+        document.getElementById('excecao-fechado')?.addEventListener('change', (e) => {
+            const dis = e.target.checked;
+            document.getElementById('excecao-abertura').disabled = dis;
+            document.getElementById('excecao-fechamento').disabled = dis;
+        });
+        function resetExcecaoForm() {
+            document.getElementById('excecao-id').value = '';
+            const f = document.getElementById('form-excecao');
+            if (f) f.reset();
+            const ab = document.getElementById('excecao-abertura');
+            const fe = document.getElementById('excecao-fechamento');
+            if (ab) { ab.value = '08:00'; ab.disabled = false; }
+            if (fe) { fe.value = '18:00'; fe.disabled = false; }
+            const dt = document.getElementById('excecao-data');
+            if (dt) dt.disabled = false;
+            const bc = document.getElementById('btn-cancelar-excecao');
+            if (bc) bc.style.display = 'none';
+            const bs = document.getElementById('btn-salvar-excecao');
+            if (bs) bs.textContent = 'Salvar exceção';
+        }
+        document.getElementById('btn-cancelar-excecao')?.addEventListener('click', resetExcecaoForm);
+        document.getElementById('form-excecao')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('excecao-id').value.trim();
+            const data = document.getElementById('excecao-data').value;
+            const fechado = document.getElementById('excecao-fechado').checked;
+            const abertura = document.getElementById('excecao-abertura').value;
+            const fechamento = document.getElementById('excecao-fechamento').value;
+            const motivo = document.getElementById('excecao-motivo').value.trim();
+            if (!data) { utils.showToast('Informe a data', 'error'); return; }
+            if (!USE_API || !API.createExcecao) { utils.showToast('API offline — exceções exigem servidor', 'error'); return; }
+            try {
+                if (id) {
+                    await API.updateExcecao(id, { fechado, abertura: fechado ? null : abertura, fechamento: fechado ? null : fechamento, motivo });
+                    utils.showToast('Exceção atualizada!');
+                } else {
+                    await API.createExcecao({ data, fechado, abertura: fechado ? null : abertura, fechamento: fechado ? null : fechamento, motivo });
+                    utils.showToast('Exceção criada!');
+                }
+                resetExcecaoForm();
+                await syncData(); renderExcecoes();
+            } catch (err) {
+                if (handle401(err)) return;
+                const msg = err.data?.error || err.message || 'Falha ao salvar exceção';
+                utils.showToast(typeof msg === 'string' ? msg : 'Dados inválidos', 'error');
+            }
         });
 
         document.getElementById('btn-salvar-config')?.addEventListener('click', async () => {

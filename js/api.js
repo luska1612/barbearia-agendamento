@@ -55,12 +55,22 @@
   function getAppointment(id) { return request('/appointments/' + encodeURIComponent(id)); }
   function createAppointment(payload) { return request('/appointments', { method: 'POST', body: JSON.stringify(payload) }); }
   function updateAppointment(id, payload) { return request('/appointments/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) }); }
-  function patchStatus(id, status) { return request('/appointments/' + encodeURIComponent(id) + '/status', { method: 'PATCH', body: JSON.stringify({ status }) }); }
-  function cancelAppointment(id, telefone) { return request('/appointments/' + encodeURIComponent(id) + '/cancel', { method: 'POST', body: JSON.stringify({ telefone: telefone || '' }) }); }
+  function patchStatus(id, status, motivo) {
+    const body = motivo ? { status, motivo } : { status };
+    return request('/appointments/' + encodeURIComponent(id) + '/status', { method: 'PATCH', body: JSON.stringify(body) });
+  }
+  function cancelAppointment(id, telefone, motivo) {
+    const body = { telefone: telefone || '' };
+    if (motivo) body.motivo = motivo;
+    return request('/appointments/' + encodeURIComponent(id) + '/cancel', { method: 'POST', body: JSON.stringify(body) });
+  }
   function deleteAppointment(id) { return request('/appointments/' + encodeURIComponent(id), { method: 'DELETE' }); }
   function publicDeleteAppointment(id, telefone) { return request('/appointments/public/' + encodeURIComponent(id) + '?telefone=' + encodeURIComponent(telefone||''), { method: 'DELETE' }); }
+  function listByPhone(telefone) { return request('/appointments/phone/' + encodeURIComponent(telefone || '')); }
+  function getAvailabilityAppointments(data) { return request('/appointments/availability?data=' + encodeURIComponent(data)); }
+  function getAppointmentLogs(id) { return request('/appointments/' + encodeURIComponent(id) + '/logs'); }
 
-  // Availability
+  // Availability (alias antigo)
   function getAvailability(data) { return request('/availability?data=' + encodeURIComponent(data)); }
 
   // Services
@@ -96,16 +106,29 @@
     return res.blob();
   }
 
+  // Horario excecoes (por data)
+  function listExcecoes(params={}) {
+    const qs = new URLSearchParams();
+    for(const[k,v] of Object.entries(params)) if(v!==undefined&&v!==''&&v!==null) qs.set(k,v);
+    const q=qs.toString();
+    return request('/horario-excecoes'+(q?'?'+q:''));
+  }
+  function createExcecao(payload){ return request('/horario-excecoes',{method:'POST',body:JSON.stringify(payload)}); }
+  function updateExcecao(id,payload){ return request('/horario-excecoes/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(payload)}); }
+  function deleteExcecao(id){ return request('/horario-excecoes/'+encodeURIComponent(id),{method:'DELETE'}); }
+
   window.API = {
     API_BASE, getToken, setToken, clearToken,
     login, me,
     listAppointments, getAppointment, createAppointment, updateAppointment, patchStatus, cancelAppointment, deleteAppointment, publicDeleteAppointment,
+    listByPhone, getAvailabilityAppointments, getAppointmentLogs,
     getAvailability,
     listServices, createService, updateService, deleteService,
     listBarbers, createBarber, updateBarber, deleteBarber,
     getConfig, updateConfig,
     getDashboard,
     exportJson, exportCsvBlob,
+    listExcecoes, createExcecao, updateExcecao, deleteExcecao,
     _request: request,
   };
 })();

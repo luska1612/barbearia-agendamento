@@ -51,6 +51,31 @@ const configSchema = z.object({
   localStorageAtivo: z.boolean().optional(),
 });
 
+const excecaoSchema = z.object({
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data deve ser YYYY-MM-DD'),
+  fechado: z.boolean().optional().default(false),
+  abertura: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  fechamento: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  motivo: z.string().max(200).optional().or(z.literal('')).optional(),
+}).superRefine((d, ctx) => {
+  if (d.fechado) return;
+  if (!d.abertura || !d.fechamento) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'abertura e fechamento são obrigatórios quando não fechado', path: ['abertura'] });
+  } else {
+    const toMin = (s) => { const [h,m]=s.split(':').map(Number); return h*60+m; };
+    if (toMin(d.abertura) >= toMin(d.fechamento)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'abertura deve ser antes do fechamento', path: ['fechamento'] });
+    }
+  }
+});
+
+const excecaoUpdateSchema = z.object({
+  fechado: z.boolean().optional(),
+  abertura: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  fechamento: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  motivo: z.string().max(200).optional().or(z.literal('')).optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'Nenhum campo para atualizar' });
+
 function parseOr400(schema, data) {
   const result = schema.safeParse(data);
   if (!result.success) {
@@ -100,6 +125,8 @@ module.exports = {
   serviceSchema,
   barberSchema,
   configSchema,
+  excecaoSchema,
+  excecaoUpdateSchema,
   parseOr400,
   normalizarTelefone,
   validarTelefone,
