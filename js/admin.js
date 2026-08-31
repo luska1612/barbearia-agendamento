@@ -68,7 +68,7 @@
             return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
         },
         generateId() {
-            return 'ID_' + Math.random().toString(36).substr(2, 9);
+            return 'ID_' + Math.random().toString(36).slice(2, 11);
         },
         showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -112,9 +112,9 @@
                 ]);
                 if (Array.isArray(agendamentos)) state.agendamentos = agendamentos;
                 else state.agendamentos = utils.load(STORAGE_KEYS.AGENDAMENTOS, []);
-                if (Array.isArray(servicos) && servicos.length) state.servicos = servicos;
+                if (Array.isArray(servicos)) state.servicos = servicos;
                 else state.servicos = utils.load(STORAGE_KEYS.SERVICOS, DEFAULT_SERVICOS);
-                if (Array.isArray(barbeiros) && barbeiros.length) state.barbeiros = barbeiros;
+                if (Array.isArray(barbeiros)) state.barbeiros = barbeiros;
                 else state.barbeiros = utils.load(STORAGE_KEYS.BARBEIROS, DEFAULT_BARBEIROS);
                 if (config && config.abertura) state.config = { ...DEFAULT_CONFIG, ...config, diasFuncionamento: config.diasFuncionamento || DEFAULT_CONFIG.diasFuncionamento };
                 else state.config = utils.load(STORAGE_KEYS.CONFIG, DEFAULT_CONFIG);
@@ -505,7 +505,17 @@
                     return;
                 } catch (e) {
                     if (handle401(e)) return;
-                    utils.showToast(e.message || 'Falha ao excluir', 'error');
+                    const msg = (e.data && e.data.error) ? e.data.error : (e.message || 'Falha ao excluir');
+                    utils.showToast(msg, 'error');
+                    return;
+                }
+            }
+            // modo offline: também bloqueia se houver agendamento ativo em memória
+            const nomeBarbeiro = state.barbeiros.find(b => b.id === id)?.nome;
+            if (nomeBarbeiro) {
+                const vinculadosLocal = state.agendamentos.filter(a => a.barbeiro === nomeBarbeiro && ['agendado','confirmado'].includes((a.status||'agendado').toLowerCase())).length;
+                if (vinculadosLocal > 0) {
+                    utils.showToast(`Não é possível excluir: barbeiro possui ${vinculadosLocal} agendamento(s) ativo(s).`, 'error');
                     return;
                 }
             }

@@ -48,6 +48,10 @@ router.delete('/:id', authMiddleware, (req, res, next) => {
     const db = getDb();
     const existing = db.prepare('SELECT * FROM barbers WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Barbeiro não encontrado' });
+    const vinculados = db.prepare("SELECT COUNT(*) as c FROM appointments WHERE barbeiro = ? AND status IN ('agendado','confirmado')").get(existing.nome).c;
+    if (vinculados > 0) {
+      return res.status(409).json({ error: `Não é possível excluir: barbeiro possui ${vinculados} agendamento(s) ativo(s). Cancele ou conclua os agendamentos antes.` });
+    }
     db.prepare('DELETE FROM barbers WHERE id = ?').run(req.params.id);
     res.json({ ok: true });
   } catch(e){ next(e); }
