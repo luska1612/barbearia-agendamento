@@ -14,15 +14,11 @@ router.post('/login', async (req, res, next) => {
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: 'Senha é obrigatória' });
     const hash = getHash();
-    if (!hash) {
-      // fallback: se .env não tem hash, aceita admin123 (dev)
-      if (password === (process.env.ADMIN_PASSWORD || 'admin123')) {
-        const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET || 'dev-secret-change-me', { expiresIn: process.env.JWT_EXPIRES_IN || '12h' });
-        return res.json({ token, expiresIn: process.env.JWT_EXPIRES_IN || '12h' });
-      }
-      return res.status(500).json({ error: 'ADMIN_PASSWORD_HASH não configurado no servidor' });
-    }
-    const ok = await bcrypt.compare(password, hash);
+    const plain = process.env.ADMIN_PASSWORD;
+    let ok = false;
+    if (hash) ok = await bcrypt.compare(password, hash);
+    else if (plain) ok = password === plain;
+    else ok = password === 'admin123';
     if (!ok) return res.status(401).json({ error: 'Senha incorreta' });
     const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET || 'dev-secret-change-me', { expiresIn: process.env.JWT_EXPIRES_IN || '12h' });
     res.json({ token, expiresIn: process.env.JWT_EXPIRES_IN || '12h' });

@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (adminContent) adminContent.classList.add('oculto');
   }
 
-  // Verifica sessão existente
+  // Verifica sessão existente — com API, só entra com JWT válido
   if (USE_API) {
     const token = API.getToken();
     if (token) {
@@ -35,10 +35,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         sessionStorage.removeItem('adminAuth');
         showLogin();
       }
-    } else if (sessionStorage.getItem('adminAuth') === 'true') {
-      // Sessão legada sem JWT — tenta manter logado, mas primeira chamada protegida vai exigir login
-      showAdmin();
     } else {
+      sessionStorage.removeItem('adminAuth');
       showLogin();
     }
   } else {
@@ -67,13 +65,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         return;
       } catch (err) {
-        // Credencial errada reportada pela API — não cai para fallback local
         if (err.status === 401) {
           if (errorMsg) { errorMsg.textContent = 'Senha incorreta!'; errorMsg.style.display = 'block'; }
           passwordInput.value = '';
           return;
         }
-        // Erro de rede — cai para verificação local
+        // API respondeu (5xx etc.) — não fingir login local sem JWT
+        if (err.status) {
+          const apiErr = (err.data && err.data.error) || err.message || 'Erro no servidor.';
+          if (errorMsg) { errorMsg.textContent = apiErr; errorMsg.style.display = 'block'; }
+          return;
+        }
         console.warn('API /auth/login falhou, tentando fallback local', err.message || err);
       }
     }
