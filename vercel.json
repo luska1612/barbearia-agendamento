@@ -3,6 +3,10 @@
   "installCommand": "npm install --prefix server",
   "buildCommand": "echo skip",
   "functions": {
+    "api/index.js": {
+      "includeFiles": "server/src/db/schema.sql",
+      "maxDuration": 30
+    },
     "api/[[...slug]].js": {
       "includeFiles": "server/src/db/schema.sql",
       "maxDuration": 30
