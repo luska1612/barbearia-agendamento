@@ -381,7 +381,7 @@
      ========================================================================= -->
   <div id="modal-meus-agendamentos" class="modal-fundo oculto">
     <div class="modal-caixa">
-      <button class="modal-fechar" id="fechar-modal" aria-label="Fechar">×</button>
+      <button class="modal-fechar" id="fechar-modal" aria-label="Fechar">×<×</button>
       <h3>Meus agendamentos</h3>
       <p class="sub">Digite o telefone usado no agendamento para localizar e, se precisar, cancelar.</p>
       <div class="campo">
@@ -390,6 +390,18 @@
       </div>
       <button class="btn btn-primario btn-bloco" id="btn-buscar-agendamentos">Buscar meus agendamentos</button>
       <div class="lista-agendamentos" id="lista-agendamentos-cliente"></div>
+    </div>
+  </div>
+
+  <div id="modal-avaliacao" class="modal-fundo oculto">
+    <div class="modal-caixa" style="max-width:420px">
+      <button class="modal-fechar" id="fechar-avaliacao" aria-label="Fechar">×</button>
+      <h3>Avaliar atendimento</h3>
+      <p class="sub" id="avaliacao-sub"></p>
+      <div class="avaliacao-estrelas" id="avaliacao-estrelas"><button type="button" data-v="1">★</button><button type="button" data-v="2">★</button><button type="button" data-v="3">★</button><button type="button" data-v="4">★</button><button type="button" data-v="5">★</button></div>
+      <div class="campo"><label for="avaliacao-comentario">Comentário (opcional)</label><textarea id="avaliacao-comentario" rows="3" placeholder="Como foi o atendimento?" style="width:100%;padding:12px;background:var(--preto-fundo);border:1px solid rgba(255,255,255,.14);border-radius:5px;color:#fff;font-family:inherit;resize:vertical"></textarea></div>
+      <button class="btn btn-primario btn-bloco" id="btn-enviar-avaliacao">Enviar avaliação</button>
+      <input type="hidden" id="avaliacao-id">
     </div>
   </div>
 

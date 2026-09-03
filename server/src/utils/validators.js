@@ -1,8 +1,9 @@
 const { z } = require('zod');
 
+function _telDigits(v){ return (v||'').replace(/\D/g,''); }
 const clienteSchema = z.object({
   nome: z.string().min(3).max(120),
-  telefone: z.string().min(10).max(20),
+  telefone: z.string().min(10).max(20).refine(v=>{ const d=_telDigits(v); return d.length===10||d.length===11; }, { message:'Telefone deve ter 10 (fixo) ou 11 (celular) dígitos. Ex: (11) 91234-5678' }),
   email: z.string().email().optional().or(z.literal('')).optional(),
 });
 

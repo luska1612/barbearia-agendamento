@@ -106,6 +106,10 @@
     return res.blob();
   }
 
+  // Avaliacoes
+  function createAvaliacao(payload){ return request('/avaliacoes',{method:'POST',body:JSON.stringify(payload)}); }
+  function getAvaliacao(appointmentId){ return request('/avaliacoes?appointmentId='+encodeURIComponent(appointmentId)); }
+
   // Horario excecoes (por data)
   function listExcecoes(params={}) {
     const qs = new URLSearchParams();
@@ -128,6 +132,7 @@
     getConfig, updateConfig,
     getDashboard,
     exportJson, exportCsvBlob,
+    createAvaliacao, getAvaliacao,
     listExcecoes, createExcecao, updateExcecao, deleteExcecao,
     _request: request,
   };

@@ -84,6 +84,18 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        },
+        formatTelefoneBR(v) {
+            const d = (v || '').replace(/\D/g, '').slice(0, 11);
+            if (!d) return v || '';
+            if (d.length <= 10) return d.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3').replace(/-$/, '');
+            return d.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, '($1) $2-$3').replace(/-$/, '');
+        },
+        telDigitos(v) { return (v || '').replace(/\D/g, '').slice(0, 11); },
+        whatsappLink(telefone) {
+            const d = (telefone || '').replace(/\D/g, '');
+            const comDDI = d.length <= 11 ? '55' + d : d;
+            return 'https://wa.me/' + comDDI;
         }
     };
 
@@ -284,7 +296,7 @@
             row.innerHTML = `
                 <td>${utils.formatDateBR(a.data)} <br> <small>${a.horario}</small></td>
                 <td>${utils.escaparHTML(nome)}</td>
-                <td>${utils.escaparHTML(telefone)}</td>
+                <td><a href="#" class="link-telefone" data-tel="${utils.escaparHTML(telefone)}" title="Abrir no WhatsApp">${utils.escaparHTML(utils.formatTelefoneBR(telefone))}</a></td>
                 <td>${utils.escaparHTML(servicoNome)}</td>
                 <td>${utils.escaparHTML(a.barbeiro || '')}</td>
                 <td><span class="status-badge ${statusClass}">${utils.escaparHTML(statusLabel)}</span></td>
@@ -715,6 +727,26 @@
         });
         if (cur) selBarber.value = cur;
     }
+
+    function bindAdminTelefoneMasks() {
+        ['filter-search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            // não mascarar busca — só formata exibição na tabela
+        });
+    }
+
+    // Delegado: clique no telefone abre confirm -> WhatsApp
+    document.addEventListener('click', (e) => {
+        const a = e.target.closest?.('.link-telefone');
+        if (!a) return;
+        e.preventDefault();
+        const tel = a.getAttribute('data-tel') || a.textContent;
+        const fmt = utils.formatTelefoneBR(tel);
+        if (confirm(`Abrir WhatsApp de ${fmt}?\n\nVocê será direcionado para o WhatsApp deste cliente.`)) {
+            window.open(utils.whatsappLink(tel), '_blank', 'noopener');
+        }
+    });
 
     // --- EVENTOS GERAIS ---
     function setupEventListeners() {

@@ -152,6 +152,13 @@
     return agendamentos.some(a => a.data === dataISO && a.horario === horario && a.status !== 'cancelado');
   }
   function agendamentosDoDia(dataISO) { return agendamentos.filter(a => a.data === dataISO); }
+  function isRealizado(a){
+    if(a.status==='realizado') return true;
+    if(a.status==='cancelado') return false;
+    const [h,m]=a.horario.split(':').map(Number);
+    const d=new Date(a.data+'T00:00:00'); d.setHours(h,m,0,0);
+    return d < new Date();
+  }
 
   /* ---------------------------------------------------------------------
      3. ESTADO
@@ -275,7 +282,9 @@
   function mostrarErroCampo(idCampo, mensagem) { const campo=document.getElementById(idCampo); if(!campo) return; campo.classList.add('invalido'); if(mensagem){ const err=campo.querySelector('.campo-erro'); if(err) err.textContent=mensagem; } }
   function limparErroCampo(idCampo) { const c=document.getElementById(idCampo); if(c) c.classList.remove('invalido'); }
   function limparTodosErros() { ['campo-nome','campo-telefone','campo-servico','campo-data-oculto'].forEach(limparErroCampo); if(elAreaAlerta) elAreaAlerta.innerHTML=''; }
-  function validarTelefone(telefone){ return telefone.replace(/\D/g,'').length >= 10; }
+  function formatarTelefoneBR(v){ const d=v.replace(/\D/g,'').slice(0,11); if(d.length<=10){ return d.replace(/^(\d{2})(\d{4})(\d{0,4}).*/,'($1) $2-$3').replace(/-$/,''); } return d.replace(/^(\d{2})(\d{5})(\d{0,4}).*/,'($1) $2-$3').replace(/-$/,''); }
+  function validarTelefone(telefone){ const n=telefone.replace(/\D/g,'').length; return n===10||n===11; }
+  function bindMascaraTelefone(input){ if(!input) return; input.setAttribute('maxlength','15'); input.setAttribute('inputmode','numeric'); input.addEventListener('input',()=>{ input.value=formatarTelefoneBR(input.value); try{input.setSelectionRange(input.value.length,input.value.length);}catch(_){} }); input.addEventListener('blur',()=>{ input.value=formatarTelefoneBR(input.value); }); }
 
   if (form) form.addEventListener('submit', async function (evento) {
     evento.preventDefault(); limparTodosErros();
@@ -376,27 +385,31 @@
   if (btnBuscar) btnBuscar.addEventListener('click', async ()=>{
     const telefoneBusca = normalizarTelefone(document.getElementById('input-busca-telefone').value);
     if(!telefoneBusca){ if(elListaAgendamentosCliente) elListaAgendamentosCliente.innerHTML='<p class="mensagem-sem-data">Digite um telefone para buscar.</p>'; return; }
+    if(elListaAgendamentosCliente) elListaAgendamentosCliente.innerHTML='<p class="mensagem-sem-data">Buscando...</p>';
     let encontrados = [];
     if (USE_API) {
       try {
         const lista = await API.listAppointments({ telefone: telefoneBusca });
-        // API filtra por LIKE de dígitos; fallback filtra exato também
         encontrados = lista.filter(a => normalizarTelefone(a.telefone || a.cliente?.telefone || '') === telefoneBusca);
-        // se API retornou vazio por normalização, tenta todos e filtra
         if (encontrados.length===0 && lista.length===0) {
           const todos = await API.listAppointments();
           encontrados = todos.filter(a => normalizarTelefone(a.telefone || a.cliente?.telefone || '') === telefoneBusca);
         }
+        // marca já avaliados (para trocar Cancelar -> Avaliado/Avaliar)
+        try {
+          const checks = await Promise.all(encontrados.map(a => API.getAvaliacao(a.id).then(r=>!!r).catch(()=>false)));
+          encontrados.forEach((a,i)=>{ a.avaliado = checks[i]; });
+        } catch(_){}
       } catch(e){ encontrados = agendamentos.filter(a => normalizarTelefone(a.telefone || a.cliente?.telefone || '') === telefoneBusca); }
     } else {
       encontrados = agendamentos.filter(a => normalizarTelefone(a.telefone) === telefoneBusca);
+      try{ const avs=JSON.parse(localStorage.getItem('barbearia_avaliacoes')||'[]'); const set=new Set(avs.map(x=>x.appointmentId)); encontrados.forEach(a=>{ if(set.has(a.id)) a.avaliado=true; }); }catch(_){}
     }
     renderizarListaCliente(encontrados);
   });
 
   function renderizarListaCliente(lista){
     if (!elListaAgendamentosCliente) return;
-    // filtra cancelados? mostra todos exceto cancelados? mostra todos e indica status
     const visiveis = lista.filter(a => (a.status || 'agendado') !== 'cancelado');
     if (visiveis.length===0){ elListaAgendamentosCliente.innerHTML='<p class="mensagem-sem-data">Nenhum agendamento encontrado para esse telefone.</p>'; return; }
     elListaAgendamentosCliente.innerHTML='';
@@ -404,9 +417,18 @@
       const servicoNome = a.servico?.nome || a.servico;
       const barbeiroNome = a.barbeiro;
       const valor = a.servico?.preco ?? a.valor;
+      const done = isRealizado(a);
       const item=document.createElement('div'); item.className='item-agendamento';
-      item.innerHTML=`<div class="info"><b>${escaparHTML(servicoNome)} — ${paraBR(a.data)} às ${a.horario}</b><span>Barbeiro: ${escaparHTML(barbeiroNome)} · R$ ${valor},00</span></div><button type="button" class="btn-cancelar" data-id="${a.id}">Cancelar</button>`;
+      if(done){
+        const ja=a.avaliado;
+        item.innerHTML=`<div class="info"><span class="badge-realizado">✅ Atendimento realizado com sucesso!</span><b>${escaparHTML(servicoNome)} — ${paraBR(a.data)} às ${a.horario}</b><span>Barbeiro: ${escaparHTML(barbeiroNome)} · R$ ${valor},00</span></div>${ja?'<span class="badge-realizado">⭐ Avaliado</span>':'<button type="button" class="btn-avaliar" data-avaliar="'+a.id+'">⭐ Avaliar</button>'}`;
+      } else {
+        item.innerHTML=`<div class="info"><b>${escaparHTML(servicoNome)} — ${paraBR(a.data)} às ${a.horario}</b><span>Barbeiro: ${escaparHTML(barbeiroNome)} · R$ ${valor},00</span></div><button type="button" class="btn-cancelar" data-id="${a.id}">Cancelar</button>`;
+      }
       elListaAgendamentosCliente.appendChild(item);
+    });
+    elListaAgendamentosCliente.querySelectorAll('[data-avaliar]').forEach(b=>{
+      b.addEventListener('click',()=>abrirModalAvaliacao(b.getAttribute('data-avaliar')));
     });
     elListaAgendamentosCliente.querySelectorAll('.btn-cancelar').forEach(botao=>{
       botao.addEventListener('click', async ()=>{
@@ -415,7 +437,6 @@
         if (USE_API) {
           try {
             const tel = document.getElementById('input-busca-telefone').value;
-            // tenta cancel via API (soft cancel com telefone)
             try { await API.cancelAppointment(id, tel); } catch(_) { await API.publicDeleteAppointment(id, normalizarTelefone(tel)); }
           } catch(e){ alert(e.message); return; }
           await carregarAgendamentos();
@@ -430,6 +451,55 @@
       });
     });
   }
+
+  /* ---------------------------------------------------------------------
+     8b. AVALIACAO (pos-atendimento)
+     --------------------------------------------------------------------- */
+  let avaliacaoNota=0;
+  function abrirModalAvaliacao(id){
+    document.getElementById('avaliacao-id').value=id;
+    avaliacaoNota=0;
+    const ta=document.getElementById('avaliacao-comentario'); if(ta) ta.value='';
+    document.querySelectorAll('#avaliacao-estrelas button').forEach(b=>b.classList.remove('ativo'));
+    const ag=agendamentos.find(x=>x.id===id);
+    const sub=document.getElementById('avaliacao-sub');
+    if(sub) sub.textContent=ag? `${ag.servico?.nome||ag.servico} — ${paraBR(ag.data)} às ${ag.horario}` : '';
+    const m=document.getElementById('modal-avaliacao'); if(m) m.classList.remove('oculto');
+  }
+  document.querySelectorAll('#avaliacao-estrelas button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      avaliacaoNota=Number(b.dataset.v);
+      document.querySelectorAll('#avaliacao-estrelas button').forEach(x=>x.classList.toggle('ativo', Number(x.dataset.v)<=avaliacaoNota));
+    });
+  });
+  document.getElementById('fechar-avaliacao')?.addEventListener('click',()=>document.getElementById('modal-avaliacao')?.classList.add('oculto'));
+  document.getElementById('modal-avaliacao')?.addEventListener('click',e=>{ if(e.target.id==='modal-avaliacao') e.currentTarget.classList.add('oculto'); });
+  document.getElementById('btn-enviar-avaliacao')?.addEventListener('click', async()=>{
+    if(!avaliacaoNota) { alert('Selecione de 1 a 5 estrelas'); return; }
+    const id=document.getElementById('avaliacao-id').value;
+    const comentario=document.getElementById('avaliacao-comentario').value.trim();
+    const telefone=document.getElementById('input-busca-telefone').value;
+    const btn=document.getElementById('btn-enviar-avaliacao'); const prev=btn.textContent; btn.disabled=true; btn.textContent='Enviando...';
+    try{
+      if(USE_API) await API.createAvaliacao({ appointmentId:id, telefone, rating:avaliacaoNota, comentario });
+      else {
+        const arr=JSON.parse(localStorage.getItem('barbearia_avaliacoes')||'[]');
+        arr.push({appointmentId:id, rating:avaliacaoNota, comentario, criadoEm:new Date().toISOString()});
+        localStorage.setItem('barbearia_avaliacoes', JSON.stringify(arr));
+      }
+      const idx=agendamentos.findIndex(x=>x.id===id); if(idx>=0) agendamentos[idx].avaliado=true;
+      document.getElementById('modal-avaliacao')?.classList.add('oculto');
+      const tel=normalizarTelefone(telefone);
+      let restantes=[];
+      if(USE_API){ try{ const lista=await API.listAppointments({telefone:tel}); restantes=lista.filter(a=>normalizarTelefone(a.telefone||a.cliente?.telefone||'')===tel); }catch(_){ restantes=agendamentos.filter(a=>normalizarTelefone(a.telefone||a.cliente?.telefone||'')===tel); } }
+      else restantes=agendamentos.filter(a=>normalizarTelefone(a.telefone)===tel);
+      restantes.forEach(r=>{ if(agendamentos.find(x=>x.id===r.id)?.avaliado) r.avaliado=true; });
+      renderizarListaCliente(restantes);
+    }catch(e){
+      alert(e.data?.error||e.message||'Falha ao enviar avaliacao');
+      if(e.status===409){ const idx=agendamentos.findIndex(x=>x.id===id); if(idx>=0) agendamentos[idx].avaliado=true; document.getElementById('modal-avaliacao')?.classList.add('oculto'); }
+    } finally { btn.disabled=false; btn.textContent=prev; }
+  });
 
   /* ---------------------------------------------------------------------
      9. MENU MOBILE
@@ -474,7 +544,10 @@
   const elAno = document.getElementById('ano-atual');
   if (elAno) elAno.textContent = new Date().getFullYear();
 
+  function initMascarasTelefone(){ bindMascaraTelefone(document.getElementById('input-telefone')); bindMascaraTelefone(document.getElementById('input-busca-telefone')); }
+
   (async function init(){
+    initMascarasTelefone();
     await carregarConfig();
     await carregarAgendamentos();
     await popularOpcoesDinamicas();

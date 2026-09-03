@@ -470,6 +470,8 @@ input[type="time"]::-webkit-datetime-edit-minute-field:focus {
     font-weight: 600;
 }
 
+.link-telefone{color:var(--off-white);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.link-telefone:hover{color:var(--dourado)}
 .status-confirmado { background: rgba(63,174,92,.2); color: var(--verde-disp); }
 .status-concluido { background: rgba(201,168,76,.2); color: var(--dourado); }
 .status-cancelado { background: rgba(192,57,43,.2); color: var(--vermelho-indisp); }

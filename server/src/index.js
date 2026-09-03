@@ -33,6 +33,7 @@ app.use('/api/availability', require('./routes/availability'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/export', require('./routes/export'));
 app.use('/api/horario-excecoes', require('./routes/horarioExcecoes'));
+app.use('/api/avaliacoes', require('./routes/avaliacoes'));
 
 // Servir frontend estático (index.html, admin.html, css/, js/, img/)
 const publicDir = path.join(__dirname, '..', '..');

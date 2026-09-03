@@ -71,3 +71,15 @@ CREATE TABLE IF NOT EXISTS horario_excecoes (
   "atualizadoEm" TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_excecoes_data ON horario_excecoes(data);
+
+-- Avaliacoes (1 por agendamento, apos atendimento realizado)
+CREATE TABLE IF NOT EXISTS avaliacoes (
+  id TEXT PRIMARY KEY,
+  appointment_id TEXT NOT NULL UNIQUE REFERENCES appointments(id) ON DELETE CASCADE,
+  cliente_telefone TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comentario TEXT,
+  "criadoEm" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_avaliacoes_appt ON avaliacoes(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_avaliacoes_tel ON avaliacoes(cliente_telefone);

@@ -1426,3 +1426,12 @@ footer {
     scroll-behavior: auto;
   }
 }
+
+/* Avaliacoes */
+.btn-avaliar{background:rgba(106,70,143,.18);color:var(--dourado-claro);border:1px solid rgba(106,70,143,.4);padding:8px 14px;border-radius:5px;font-size:.78rem;font-weight:600;transition:background .2s}
+.btn-avaliar:hover{background:var(--dourado);color:var(--preto)}
+.badge-realizado{color:var(--verde-disp);font-size:.82rem;font-weight:600;display:block;margin-bottom:4px}
+.avaliacao-estrelas{display:flex;gap:6px;margin:14px 0}
+.avaliacao-estrelas button{font-size:1.9rem;background:transparent;color:rgba(255,255,255,.25);line-height:1;transition:color .15s}
+.avaliacao-estrelas button.ativo,.avaliacao-estrelas button:hover{color:var(--dourado)}
+#avaliacao-comentario:focus{outline:none;border-color:var(--dourado)}
